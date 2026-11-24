@@ -6,31 +6,57 @@
 
 ---
 
-## Live Preview on Device
+## 6-Screen 240×240 Round LCD Rotation
 
 <p align="center">
-  <img src="images/screen_power.jpg" width="44%" alt="Screen 2: Power Bus Telemetry" />
-  &nbsp;&nbsp;
-  <img src="images/screen_cores.jpg" width="44%" alt="Screen 3: 12x A3197S ASIC Core Temperatures" />
+  <img src="images/lcd_screens_v3.png" width="100%" alt="Phosphor OS v3 — 6-Screen 240x240 Round LCD Rotation" />
 </p>
 
-*(Note: the v3 release also fixes the missing `.` glyph by switching to `lv_font_montserrat_14` and adds Screen 4: Live W/V/A `lv_chart`.)*
+Short-pressing the front capacitive touch button cycles through all **6 screens**:
+
+| # | Screen | `show_id` | Description |
+| :-: | :--- | :-: | :--- |
+| **1** | **Main Dashboard** | `1` | Original Phosphor OS main screen (`info_bg_3.png`: TH/s, mode, time, IP, power) |
+| **2** | **Power Bus Telemetry** | `25` | Active mode & preset (`HIGH \| EFF OC`), large DC Watts (`32 px`), symmetric `VBUS (V)` & `IBUS (A)`, `Vcore (mV) \| J/TH`, `FAN % \| Max °C` |
+| **3** | **12× A3197S Cores** | `26` | Live PLL `MHz` & `Vcore`, symmetric 3×4 grid of all 12 ASIC chip temperatures from `g_pvt_temp` (color-coded: mint `<75°C`, amber `75–81°C`, red `≥82°C`), `Min / Avg / Max °C`, and `TH/s` |
+| **4** | **Power Live Chart** | `27` | Real-time 48-second 3-series LVGL `lv_chart` (`176×104 px`): **Watts** (`#F3A965`, 0–150 W), **Volts** (`#8DC5FF`, 20–30 V), and **Amps** (`#9AEF9E`, 0–6 A), with live numeric legend and `TH/s \| °C` footer |
+| **5** | **Analog Clock** | `2` | Original Avalon / Phosphor watch screen (`watch_bg.png`) |
+| **6** | **Custom Logo** | `3` | Original custom logo screen (`logo_b.png`) |
 
 ---
 
-## Download Ready-to-Flash Firmware
+## Web Dashboard & Tabs
 
-| File | Partition | Size | SHA-256 |
+### Overview (Telemetry, Live Charts, Power Profile, 8-Mode Tuning & Cooling)
+<p align="center">
+  <img src="images/webui_overview.png" width="100%" alt="Phosphor OS Web UI — Overview Tab with Tuning (UC / UV / OC)" />
+</p>
+
+### Pools, ASICs & Diagnostics Tabs
+<p align="center">
+  <img src="images/webui_asics.png" width="49%" alt="Phosphor OS Web UI — ASICs Tab (12x A3197S)" />
+  &nbsp;
+  <img src="images/webui_diagnostics.png" width="49%" alt="Phosphor OS Web UI — Diagnostics Tab" />
+</p>
+<p align="center">
+  <img src="images/webui_pools.png" width="70%" alt="Phosphor OS Web UI — Pools Tab" />
+</p>
+
+---
+
+## Downloads (Firmware & Official Flashing Tool)
+
+| File | Description | Size | SHA-256 |
 | :--- | :--- | ---: | :--- |
-| [`firmware/Phosphor_OS_Nano3S_OC_v3.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v3.kdimg) | `app_ubi` only (`0x04200000`) | 4,915,200 B | `CA0178D0C288E1126A2B7BAF68482D65EA1080D851336FCE7CACC8EC39D3110F` |
+| [`firmware/Phosphor_OS_Nano3S_OC_v3.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v3.kdimg) | **Firmware v3** (`app_ubi` only, `0x04200000`) | 4.69 MB | `CA0178D0C288E1126A2B7BAF68482D65EA1080D851336FCE7CACC8EC39D3110F` |
+| [`tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip`](tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip) | **Original Canaan Avalon Home Series Firmware Upgrade Tool (Windows v2.2.1)** | 50.19 MB | Official Canaan flasher |
 
-Because this `.kdimg` contains **only the `app_ubi` partition** (1 partition, identical to Phosphor OS), flashing it **preserves** your `data_ubi`, factory ASIC calibration, Wi-Fi/LAN configuration, pools, `rootfs_ubi`, Linux kernel, and bootloader.
+Because `Phosphor_OS_Nano3S_OC_v3.kdimg` contains **only the `app_ubi` partition** (1 partition, identical to Phosphor OS), flashing it **preserves** your `data_ubi`, factory ASIC calibration, Wi-Fi/LAN configuration, pools, `rootfs_ubi`, Linux kernel, and bootloader.
 
 ---
 
-## Features
+## 8-Mode Tuning Switch (`UC / UV / Eff OC / OC`)
 
-### 1. 8-Mode Tuning Switch (`UC / UV / Eff OC / OC`) in Web Dashboard
 Disassembly of `power_set_vol` (`0x0004c0b6`) in `mm_miner` revealed that the onboard VRM DAC operates in exact **26 mV** hardware steps around `3600 mV` (`step = (V - 3600) / 26`). All voltage offsets are aligned to exact multiples of `26 mV` so every step produces a deterministic hardware VRM change.
 
 Presets are applied on top of your miner's **factory per-mode calibration** (`LOW` / `MED` / `HIGH`), saved persistently to `/data/userdata/phosphor-oc.conf`, and applied live from the Web UI without rebooting:
@@ -51,22 +77,6 @@ Presets are applied on top of your miner's **factory per-mode calibration** (`LO
 - Core voltage (`Vcore`): `3200 mV – 3750 mV`
 - ASIC PLL frequency: `120 MHz – 520 MHz`
 - Factory thermal protection (`100%` fan by `90 °C`) remains 100% active.
-
----
-
-### 2. 6-Screen 240×240 Round LCD Rotation
-Short-pressing the front capacitive touch button now cycles through **6 screens** in the following order:
-
-| # | Screen | `show_id` | Description |
-| :-: | :--- | :-: | :--- |
-| **1** | **Main Dashboard** | `1` | Original Phosphor OS main screen (TH/s, mode, time, IP, power) |
-| **2** | **Power Bus Telemetry** | `25` | Active mode & tuning preset (`HIGH \| EFF OC`), large DC Watts (`32 px`), symmetric `VBUS (V)` & `IBUS (A)`, `Vcore (mV) \| J/TH`, `FAN % \| Max °C` |
-| **3** | **12× A3197S Cores** | `26` | Live PLL `MHz` & `Vcore`, symmetric 3×4 grid of all 12 ASIC chip temperatures from `g_pvt_temp` (color-coded: mint `<75°C`, amber `75–81°C`, red `≥82°C`), `Min / Avg / Max °C`, and `TH/s` |
-| **4** | **Power Live Chart** | `27` | Real-time 48-second 3-series LVGL `lv_chart` (`176×104 px`): **Watts** (`#F3A965`, 0–150 W), **Volts** (`#8DC5FF`, 20–30 V), and **Amps** (`#9AEF9E`, 0–6 A), with live numeric legend and `TH/s \| °C` footer |
-| **5** | **Analog Clock** | `2` | Original Avalon / Phosphor watch screen |
-| **6** | **Custom Logo** | `3` | Original custom logo screen |
-
-All three new screens update every `1000 ms` via LVGL timers (`lv_timer_create`), using `/run/phosphor-lcd-telemetry` (`LCDV2`), `g_cali_info`, and `g_pvt_temp`.
 
 ---
 
@@ -94,9 +104,9 @@ Everything is built deterministically from the base Phosphor OS `app_ubi` image 
 
 ## Flashing Instructions
 
-1. Download [`firmware/Phosphor_OS_Nano3S_OC_v3.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v3.kdimg).
-2. Verify SHA-256: `CA0178D0C288E1126A2B7BAF68482D65EA1080D851336FCE7CACC8EC39D3110F`.
-3. Flash using **Avalon Family** app / **FMS** / standard Canaan `.kdimg` firmware upgrade method (only `app_ubi` is updated).
+1. Download [`firmware/Phosphor_OS_Nano3S_OC_v3.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v3.kdimg) and unpack [`tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip`](tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip).
+2. Verify SHA-256 of the `.kdimg` file: `CA0178D0C288E1126A2B7BAF68482D65EA1080D851336FCE7CACC8EC39D3110F`.
+3. Run **Avalon Home Series Firmware Upgrade Tool**, select `Phosphor_OS_Nano3S_OC_v3.kdimg`, connect your Avalon Nano 3S in upgrade mode, and flash (only `app_ubi` is updated).
 4. After reboot:
    - Open the miner's Web UI and select a preset in **Tuning (UC / UV / OC)** (recommended starting points on `HIGH`: **`UV`** or **`Eff OC`**).
    - Tap the front touch button to cycle through all 6 LCD screens.
@@ -105,7 +115,7 @@ Everything is built deterministically from the base Phosphor OS `app_ubi` image 
 
 ## Opis po polsku
 
-Zmodyfikowany obraz **Phosphor OS** dla koparki **Canaan Avalon Nano 3S** (tylko partycja `app_ubi` pod `0x04200000` — wgranie **nie kasuje** kalibracji, ustawień Wi-Fi, pul ani partycji `data_ubi`).
+Zmodyfikowany obraz **Phosphor OS** dla koparki **Canaan Avalon Nano 3S** (tylko partycja `app_ubi` pod `0x04200000` — wgranie **nie kasuje** kalibracji, ustawień Wi-Fi, pul ani partycji `data_ubi`). W repozytorium dołączony jest także oryginalny program do wgrywania dla Windows (`tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip`).
 
 ### Co zawiera wersja v3
 1. **8-stopniowy przełącznik `Tuning (UC / UV / OC)` w panelu Web**:
