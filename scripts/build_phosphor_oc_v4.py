@@ -10,7 +10,7 @@ phos_kdimg_path = r"C:\Users\robog\.gemini\antigravity\brain\fa92c2a8-e9d0-4bb6-
 phos_mm_path = os.path.join(base_dir, r"phosphor_app\release\linux\app\mm_miner")
 phos_dash_path = os.path.join(base_dir, r"phosphor_app\release\linux\resource\www\html\dashboard.html")
 phos_ubi_path = os.path.join(base_dir, "phosphor_app_ubi.bin")
-out_kdimg_path = os.path.join(base_dir, "Phosphor_OS_Nano3S_OC_v3.kdimg")
+out_kdimg_path = os.path.join(base_dir, "Phosphor_OS_Nano3S_OC_v4.kdimg")
 
 # ==============================================================================
 # 1. Clean Two-Pass RISC-V64 Macro-Assembler
@@ -1035,63 +1035,96 @@ with open(phos_dash_path, "rb") as f:
 assert len(orig_dash) == 44022
 
 prefix = orig_dash[:20480]  # bno=0..4 untouched!
-suffix = orig_dash[20480:].decode("utf-8")
+full_html = orig_dash[20480:].decode("utf-8")
 
 power_card_marker = """      <p id="mode-note">Waiting for controller status.</p>
     </article>
   </div>"""
-assert power_card_marker in suffix
+assert power_card_marker in full_html
 
 oc_card_html = """      <p id="mode-note">Waiting for controller status.</p>
     </article>
     <article class="card">
       <h2>Tuning (UC / UV / OC)</h2>
-      <div class="actions" id="oc-modes">
+      <div class="actions" id="om">
         <button value="1" disabled>UC -2</button><button value="2" disabled>UC -1</button><button value="3" disabled>UV</button><button value="0" disabled>Stock</button><button value="4" disabled>Eff OC</button><button value="5" disabled>OC +1</button><button value="6" disabled>OC +2</button><button value="7" disabled>OC +3</button>
       </div>
-      <p id="oc-note">Select tuning preset.</p>
+      <p id="on">Select preset.</p>
+      <p style="color:#f3a965;font-size:12px">Warning: OC/voltage tuning is at your own risk and may damage hardware. No liability.</p>
     </article>
   </div>"""
-suffix = suffix.replace(power_card_marker, oc_card_html, 1)
+full_html = full_html.replace(power_card_marker, oc_card_html, 1)
+
+# Enhance Device card with full LED RGB/effect/brightness, Custom Logo upload (Screen 6), and Reboot/Power Off
+dev_marker = """      <p id="filter-note">Filter counter unavailable.</p>
+      <button id="filter-reset" disabled>Reset cleaned filter</button>
+    </article>"""
+assert dev_marker in full_html
+dev_html = """      <div class="actions" style="gap:5px;align-items:center"><select id="lf" style="width:auto"><option value="1">Solid</option><option value="2">Flash</option><option value="3">Breath</option><option value="4">Rainbow</option><option value="0">Off</option></select><input id="lc" type="color" value="#0088ff" style="width:36px;height:28px;padding:1px"><input id="lb" type="range" min="10" max="100" value="100" style="width:76px"><button id="la" type="button">Apply LED</button></div>
+      <p id="filter-note">Filter N/A.</p>
+      <div class="actions"><button id="filter-reset" disabled>Reset filter</button><input id="li" type="file" accept="image/*" hidden><button onclick="el('li').click()" type="button">Upload Logo</button><button id="lr" type="button">Reset Logo</button><button id="sr" type="button">Reboot</button><button id="so" type="button" style="color:#ff8a8a">Power Off</button></div>
+    </article>"""
+full_html = full_html.replace(dev_marker, dev_html, 1)
+
+# Remove legacy 3-point curve migration dead code in loadCooling (Phosphor uses curve5)
+legacy_curve = """    if (mode === 'curve' && parsed.length === 3) {
+      const [a, b, c] = parsed;
+      points = [[50, a], [60, Math.floor((a + b) / 2)], [70, b],
+                [75, Math.floor(b + (c - b) / 3)], [85, c]];
+    }"""
+if legacy_curve in full_html:
+    full_html = full_html.replace(legacy_curve, "", 1)
 
 load_marker = "loadCooling().catch(() => {});"
-assert load_marker in suffix
+assert load_marker in full_html
 
-# Share readConf/saveConf between cooling and tuning to save ~180 bytes in bno=10
-suffix = suffix.replace(
+# Share readConf/saveConf between cooling and tuning
+full_html = full_html.replace(
     "const value = await apiShell('if [ -f ' + coolingPath + ' ]; then cat ' + coolingPath + '; fi');",
-    "const value = await readConf(coolingPath);", 1
+    "const value = await rc(coolingPath);", 1
 )
-suffix = suffix.replace(
+full_html = full_html.replace(
     """const command = setting
       ? 'f=$(mktemp ' + coolingPath + '.XXXXXX) || exit 1; printf %s ' + "'" + setting + "'" +
         ' > "$f" && mv -f "$f" ' + coolingPath + ' && echo SAVED; rm -f "$f"'
       : 'rm -f ' + coolingPath + ' && echo SAVED';
     if (await apiShell(command) !== 'SAVED') throw new Error('Setting was not saved');""",
-    "if (await saveConf(coolingPath, setting) !== 'SAVED') throw 0;", 1
+    "if (await sc(coolingPath, setting) !== 'SAVED') throw 0;", 1
 )
 
-oc_js = """const readConf=p=>apiShell('if [ -f '+p+' ]; then cat '+p+'; fi'),saveConf=(p,v)=>apiShell(v?'f=$(mktemp '+p+'.XXXXXX)||exit 1;printf %s \\x27'+v+'\\x27>"$f"&&mv -f "$f" '+p+'&&echo SAVED;rm -f "$f"':'rm -f '+p+'&&echo SAVED');
-const ocPath='/data/userdata/phosphor-oc.conf',ocBtns=[...el('oc-modes').querySelectorAll('button')];let ocLvl=0;
-const ocD=[[0,0,0],[-40,-52,-12],[-20,-26,-6],[0,-26,-3],[20,-26,4],[20,26,7],[35,52,10],[50,78,12]];
-function drawOc(){for(const b of ocBtns){b.disabled=!switchable||sending;b.setAttribute('aria-pressed',Number(b.value)===ocLvl);}const t=ocD[ocLvl]||ocD[0];show('oc-note',ocLvl?(t[0]>0?'+':'')+t[0]+' MHz / '+(t[1]>0?'+':'')+t[1]+' mV / '+(t[2]>0?'+':'')+t[2]+' W':'Stock (0 MHz / 0 mV)');}
-async function loadOc(){const v=await readConf(ocPath),m=/^oc ([1-7])$/.exec(v.trim());ocLvl=m?Number(m[1]):0;drawOc();}
-for(const b of ocBtns)b.onclick=async()=>{const lvl=Number(b.value);if(sending||!switchable||lvl<0||lvl>7)return;sending=true;for(const x of[...modeButtons,...hardwareButtons,...ocBtns])x.disabled=true;show('feedback','Applying tuning…');try{if(await saveConf(ocPath,lvl?'oc '+lvl:'')!=='SAVED')throw 0;ocLvl=lvl;const cur=currentProfile,alt=cur===2?1:2;await rpc('ascset|0,workmode,set,'+alt);await new Promise(r=>setTimeout(r,1200));await rpc('ascset|0,workmode,set,'+cur);show('feedback','Tuning saved.');}catch{show('feedback','Tuning failed.');}finally{sending=false;drawOc();refresh();}};
-const _origRender=renderStats;renderStats=raw=>{_origRender(raw);drawOc();};
+oc_js = r"""const sh=apiShell,rc=p=>sh('if [ -f '+p+' ]; then cat '+p+'; fi'),sc=(p,v)=>sh(v?'f=$(mktemp '+p+'.XXXXXX)||exit 1;printf %s \x27'+v+'\x27>"$f"&&mv -f "$f" '+p+'&&echo SAVED;rm -f "$f"':'rm -f '+p+'&&echo SAVED');
+const ocP='/data/userdata/phosphor-oc.conf',ocB=[...qa('#om button')],ocD=[[0,0,0],[-40,-52,-12],[-20,-26,-6],[0,-26,-3],[20,-26,4],[20,26,7],[35,52,10],[50,78,12]];let ocL=0,ledI=0;
+const dOc=()=>{for(const b of ocB){b.disabled=!switchable||sending;b.setAttribute('aria-pressed',+b.value===ocL);}const t=ocD[ocL]||ocD[0];show('on',ocL?(t[0]>0?'+':'')+t[0]+' MHz / '+(t[1]>0?'+':'')+t[1]+' mV / '+(t[2]>0?'+':'')+t[2]+' W':'Stock (0 MHz / 0 mV)');};
+async function loadOc(){const m=/^oc ([1-7])$/.exec((await rc(ocP)).trim());ocL=m?+m[1]:0;dOc();}
+for(const b of ocB)b.onclick=async()=>{const l=+b.value;if(sending||!switchable||l<0||l>7)return;sending=true;for(const x of[...modeButtons,...hardwareButtons,...ocB])x.disabled=true;fb('Applying...');try{if(await sc(ocP,l?'oc '+l:'')!=='SAVED')throw 0;ocL=l;const c=currentProfile,a=c===2?1:2;await rpc('ascset|0,workmode,set,'+a);await new Promise(r=>setTimeout(r,1200));await rpc('ascset|0,workmode,set,'+c);fb('Saved.');}catch{fb('Err');}finally{sending=false;dOc();refresh();}};
+const _oR=renderStats;renderStats=raw=>{_oR(raw);dOc();if(!ledI){const m=/LEDUser\[(\d+)-(\d+)-\d+-(\d+)-(\d+)-(\d+)\]/.exec(raw);if(m){ledI=1;el('lf').value=m[1];el('lb').value=m[2];el('lc').value='#'+[m[3],m[4],m[5]].map(n=>(+n).toString(16).padStart(2,'0')).join('');}}};
+const go=(m,f)=>async()=>{fb(m);try{await f();}catch{fb('Err');}},wd='/data/userconfig/wallpaper';
+el('la').onclick=go('LED...',async()=>{const f=+el('lf').value,r=el('lc').value;if(f>0)await rpc('ascset|0,ledmode,0');await rpc('ascset|0,ledset,'+f+'-'+el('lb').value+'-50-'+[1,3,5].map(i=>parseInt(r.slice(i,i+2),16)).join('-'));fb('LED OK');});
+el('li').onchange=async e=>{const f=e.target.files[0];if(!f)return;await go('Logo...',async()=>{const i=await createImageBitmap(f),c=dc('canvas'),x=c.getContext('2d'),s=Math.min(i.width,i.height);c.width=c.height=240;x.beginPath();x.arc(120,120,120,0,7);x.clip();x.drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,240,240);const b=c.toDataURL('image/png').split(',')[1];await sh('mkdir -p '+wd+'&&rm -f '+wd+'/* /tmp/l');for(let k=0;k<b.length;k+=2800)await sh('printf %s '+b.slice(k,k+2800)+'>>/tmp/l');await sh('base64 -d /tmp/l>'+wd+'/wallpaper_0.png&&rm -f /tmp/l&&sync');fb('Logo saved. Reboot.');})();e.target.value='';};
+el('lr').onclick=()=>confirm('Reset logo?')&&go('Reset...',async()=>{await sh('rm -f '+wd+'/*&&sync');fb('Logo reset. Reboot.');})();
+el('sr').onclick=()=>confirm('Reboot?')&&go('Rebooting...',()=>rpc('ascset|0,reboot,0'))();
+el('so').onclick=()=>confirm('Power off?')&&go('Power off...',()=>sh('sync&&poweroff'))();
 loadOc().catch(()=>{});
 loadCooling().catch(() => {});"""
-suffix = suffix.replace(load_marker, oc_js, 1)
+full_html = full_html.replace(load_marker, oc_js, 1)
 
-# Compact suffix cleanly so all blocks bno=5..10 fit their exact UBIFS deflate targets
-suffix = suffix.replace(
+# Compact ALL <style> blocks + HTML + JS cleanly so all blocks bno=0..10 fit their exact UBIFS deflate targets
+def min_css(m):
+    c = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S)
+    c = re.sub(r"\s+", " ", c)
+    c = re.sub(r"\s*([{}:;,>+~])\s*", r"\1", c).replace(";}", "}")
+    return "<style>" + c.strip() + "</style>"
+full_html = re.sub(r"<style>(.*?)</style>", min_css, full_html, flags=re.S)
+
+full_html = full_html.replace(
     "Auto increases duty as ASIC temperature rises above the target. The factory target caps the setting. The manual curve sets a minimum duty. Both modes retain factory protection and reach full duty by 90 °C.",
     "Auto targets ASIC temp; manual curve sets min PWM. Factory thermal protection stays active (100% by 90 °C)."
 )
-suffix = suffix.replace("Drag the five points or enter their values below the graph.", "Drag points or edit values below.")
-suffix_compact = re.sub(r"^\s*//[^\n]*$", "", suffix, flags=re.M)
-suffix_compact = re.sub(r"\n[ \t]+", "\n", suffix_compact)
-suffix_compact = re.sub(r"\n{2,}", "\n", suffix_compact)
-suffix_compact = re.sub(r">\n<", "><", suffix_compact)
+full_html = full_html.replace("Drag the five points or enter their values below the graph.", "Drag points or edit values below.")
+full_html = re.sub(r"^\s*//[^\n]*$", "", full_html, flags=re.M)
+full_html = re.sub(r"\n[ \t]+", "\n", full_html)
+full_html = re.sub(r"\n{2,}", "\n", full_html)
+full_html = re.sub(r">\n<", "><", full_html)
 for old_s, new_s in [
     ("Last observed increase in accepted shares: ", "Last share: "),
     ("Waiting for a change in accepted shares.", "Waiting for shares."),
@@ -1115,18 +1148,130 @@ for old_s, new_s in [
     ("Could not reach the miner API.", "API unreachable."),
     ("document.createElement(", "dc("),
 ]:
-    suffix_compact = suffix_compact.replace(old_s, new_s)
-suffix_compact = suffix_compact.replace("const el = id => document.getElementById(id);", "const el=id=>document.getElementById(id),dc=t=>document.createElement(t);", 1)
-nl_pos = suffix_compact.find("\n", 12300)
-suffix_compact = suffix_compact[:nl_pos + 1] + "/*" + "=" * 140 + "*/\n" + suffix_compact[nl_pos + 1:]
+    full_html = full_html.replace(old_s, new_s)
+full_html = full_html.replace("show('feedback', ", "fb(").replace("show('feedback',", "fb(")
+full_html = full_html.replace("document.querySelectorAll(", "qa(").replace("Math.floor(", "mf(")
+full_html = full_html.replace("el('cooling-mode')", "_cm").replace("el('cooling-target')", "_ct").replace("el('save-cooling')", "_sb")
+full_html = full_html.replace("const el = id => document.getElementById(id);", "const el=id=>document.getElementById(id),dc=t=>document.createElement(t),fb=m=>show('feedback',m),qa=s=>document.querySelectorAll(s),mf=Math.floor,_cm=el('cooling-mode'),_ct=el('cooling-target'),_sb=el('save-cooling');", 1)
 
-suffix_bytes = suffix_compact.encode("utf-8")
-new_total = len(prefix) + len(suffix_bytes)
+# Safe JS whitespace minifier (preserves strings, template literals, and regexes verbatim)
+def minify_js_safe(js):
+    out, i, n = [], 0, len(js)
+    prev_tok = ""
+    while i < n:
+        c = js[i]
+        # Single-line comment
+        if c == "/" and i + 1 < n and js[i + 1] == "/":
+            i = js.find("\n", i)
+            if i < 0: break
+            continue
+        # Block comment
+        if c == "/" and i + 1 < n and js[i + 1] == "*":
+            i = js.find("*/", i + 2)
+            i = n if i < 0 else i + 2
+            continue
+        # Strings / template literals
+        if c in ("'", '"', "`"):
+            q = c; j = i + 1
+            while j < n:
+                if js[j] == "\\": j += 2; continue
+                if js[j] == q: j += 1; break
+                j += 1
+            tok = js[i:j]; out.append(tok); prev_tok = tok; i = j; continue
+        # Regex literal heuristic: '/' after operator/keyword/start
+        if c == "/" and (not prev_tok or prev_tok[-1] in "=(,[!:?&|;{}\n" or prev_tok in ("return", "throw", "case")):
+            j = i + 1; in_cls = False
+            while j < n:
+                if js[j] == "\\": j += 2; continue
+                if js[j] == "[": in_cls = True
+                elif js[j] == "]": in_cls = False
+                elif js[j] == "/" and not in_cls:
+                    j += 1
+                    while j < n and js[j].isalpha(): j += 1
+                    break
+                j += 1
+            tok = js[i:j]; out.append(tok); prev_tok = tok; i = j; continue
+        # Whitespace
+        if c in " \t\r\n":
+            has_nl = (c == "\n")
+            j = i + 1
+            while j < n and js[j] in " \t\r\n":
+                if js[j] == "\n": has_nl = True
+                j += 1
+            nxt = js[j] if j < n else ""
+            if has_nl:
+                if out and out[-1][-1] not in "{};,(\n":
+                    out.append("\n")
+            else:
+                if out and nxt and (out[-1][-1].isalnum() or out[-1][-1] in "_$") and (nxt.isalnum() or nxt in "_$"):
+                    out.append(" ")
+                elif out and nxt and ((out[-1][-1] == "+" and nxt == "+") or (out[-1][-1] == "-" and nxt == "-")):
+                    out.append(" ")
+            i = j; continue
+        # Identifier or number
+        if c.isalnum() or c in "_$":
+            j = i + 1
+            while j < n and (js[j].isalnum() or js[j] in "_$"): j += 1
+            tok = js[i:j]; out.append(tok); prev_tok = tok; i = j; continue
+        out.append(c); prev_tok = c; i += 1
+    return "".join(out)
+
+j1 = full_html.find("<script>") + 8
+j2 = full_html.rfind("</script>")
+html_part = re.sub(r">\s+<", "><", full_html[:j1])
+js_part = full_html[j1:j2]
+for old_id, new_id in [
+    ("coolingPath", "cp"), ("pointInputs", "pI"), ("currentProfile", "cP"),
+    ("hardwareButtons", "hB"), ("modeButtons", "mB"), ("updateCoolingMode", "uCM"),
+    ("curveValues", "cV"), ("curveLayout", "cL"), ("pointerPosition", "pP"),
+    ("dragPoint", "dP"), ("validCurve", "vC"), ("drawCurve", "dC"),
+    ("renderStats", "rS"), ("renderPool", "rP"), ("decodeLcd", "dL"),
+    ("poolProgress", "pPr"), ("previousPool", "pvP"), ("lastPoolWork", "lPW"),
+    ("curveGraph", "cG"), ("shellPending", "sP"), ("snapshot", "sn"),
+    ("response", "rs"), ("refreshing", "rfs"), ("switchable", "swb"),
+    ("previous", "pv"), ("temperature", "tmp"),
+]:
+    js_part = re.sub(r"\b" + old_id + r"\b", new_id, js_part)
+full_html = html_part + minify_js_safe(js_part) + full_html[j2:]
+
+# Auto-balance UBIFS deflate budgets across bno=5..9 using zero-cost repeatable comments
+def z_len(b):
+    z = zlib.compressobj(9, zlib.DEFLATED, -15)
+    return len(z.compress(b) + z.flush())
+
+targets_5_9 = [1232, 1864, 1907, 1823, 1615]
+for bi, tgt in enumerate(targets_5_9):
+    sb = full_html.encode("utf-8")
+    if z_len(sb[bi * 4096 : (bi + 1) * 4096]) <= tgt - 2:
+        continue
+    scr_pos = full_html.find("<script>") + 8
+    lo_c, hi_c = bi * 4096 + 200, min(len(full_html), bi * 4096 + 2600)
+    if bi * 4096 + 2048 < scr_pos:
+        ins = full_html.rfind("><", lo_c, hi_c)
+        if ins < 0: continue
+        ins += 1; pre_p, suf_p = "<!--", "-->"
+    else:
+        ins = full_html.rfind(";", max(scr_pos, lo_c), hi_c)
+        if ins < 0: continue
+        ins += 1; pre_p, suf_p = "/*", "*/"
+    base_l, base_r = full_html[:ins], full_html[ins:]
+    pad_n = 8
+    while len(prefix) + len((base_l + pre_p + "=" * pad_n + suf_p + base_r).encode("utf-8")) <= 44010:
+        cand = base_l + pre_p + ("=" * pad_n) + suf_p + base_r
+        if z_len(cand.encode("utf-8")[bi * 4096 : (bi + 1) * 4096]) <= tgt - 1:
+            full_html = cand
+            break
+        pad_n += 4
+    else:
+        full_html = base_l + pre_p + ("=" * (pad_n - 4)) + suf_p + base_r
+
+dash_bytes = full_html.encode("utf-8")
+new_total = len(prefix) + len(dash_bytes)
 print(f"New dashboard.html size before pad: {new_total} (target 44022, diff={44022 - new_total:+d})")
 assert new_total <= 44022
 rem = 44022 - new_total
 pad = (b"\n<!-- " + (b"=" * (rem - 10)) + b" -->") if rem >= 10 else (b" " * rem)
-new_dash = prefix + suffix_bytes + pad
+new_dash = prefix + dash_bytes + pad
 assert len(new_dash) == 44022
 
 # ==============================================================================
