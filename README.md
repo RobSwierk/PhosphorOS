@@ -113,6 +113,20 @@ Disassembly of `power_set_vol` (`0x0004c0b6`) in `mm_miner` revealed that the on
 
 ---
 
+## Full Changelog vs. Stock Canaan Firmware (`2025061101_4ba23e3`)
+
+This build is based on the latest official **Avalon Nano 3S stock firmware (`2025061101_4ba23e3`)** with the **Phosphor OS** base layer and **v4** extensions. Only the `app_ubi` partition is modified (`mm_miner`, `cg_miner`, Web UI HTML, and `assets_lcd`); `rootfs_ubi`, `data_ubi`, kernel, bootloader, and factory ASIC calibration remain completely untouched.
+
+| Subsystem | Modified Files / Functions | What Changed vs. Stock `2025061101_4ba23e3` |
+| :--- | :--- | :--- |
+| **USB-PD & Power Supply** | `mm_miner`: `power_is_valid`, `is_power_i2c_ok`, `get_pd_max_mode`, `pd_init`, `pd_get_max_power`, `power_primary_polling`, `hashrate_calibration` | Removes strict OEM power-adapter lockout and PD I2C check (`power_is_valid` → `1`, `is_power_i2c_ok` → `1`) and unlocks `HIGH` mode (`get_pd_max_mode` → `2`) so third-party 140 W+ USB-PD 3.1 EPR or 28 V DC power supplies can run all modes without false *Unsupported Adapter* lockouts. *(Note: you are responsible for using a PSU rated for the selected power level — at least 140 W for `HIGH` / OC.)* |
+| **OC / UC / UV Tuning** | `mm_miner`: `cali_param_get` (`0x3b9e0`), `Block A` | Adds 8-mode live tuning (`UC -2`, `UC -1`, `UV`, `Stock`, `Eff OC`, `OC +1..+3`) aligned to exact **26 mV** hardware VRM DAC steps, persisted in `/data/userdata/phosphor-oc.conf`, with hard safety clamps (`45–145 W`, `3200–3750 mV`, `120–520 MHz`). |
+| **Cooling & Fan Curve** | `mm_miner`: `misc_thread` (`0x3b148`) | Adds custom Auto temperature target (`50–85 °C`) and 5-point manual PWM fan curve persisted in `/data/userdata/phosphor-cooling.conf`, while preserving factory thermal protection (`100%` fan by `90 °C`), plus live `/run/phosphor-lcd-telemetry` (`LCDV2`) export. |
+| **240×240 Round LCD UI** | `mm_miner`: `lcd_screen_info_init`, `lcd_screen_watch_init`, `lcd_screen_img_init`, `lcd_regular_show_switch`, `lcd_hardware_update`, `get_screen_index`, `lcd_switch_screen`, `Block B` | Replaces stock main & watch screens with Phosphor OS vector Main Dashboard and 60-tick Digital Clock; adds **3 new live screens** (Power Bus, 12× A3197S Core Temps, 48 s W/V/A `lv_chart`) in a 6-screen button rotation; replaces all 12 system/alert icons (`assets_lcd/screen_pic/*.png`) with dark-theme icons featuring a **color-coded animated perimeter ring**. |
+| **Web Dashboard & Controls** | `dashboard.html`, `cgpools.html`, `cg_miner` (`http_post_file_handler`) | Modern 4-tab Web UI (`Overview`, `Pools`, `ASICs`, `Diagnostics`) with 120-sample live charts, 8-mode Tuning card + OC warning, fan curve editor, **full RGB LED control** (`Solid / Flash / Breath / Rainbow / Off`, color, brightness), **Screen 6 custom 240×240 PNG logo upload/reset**, and **Reboot / Power Off** controls. |
+
+---
+
 ## Technical Architecture
 
 Built deterministically from the base Phosphor OS `app_ubi` image using a custom two-pass **RISC-V64 macro-assembler** in [`scripts/build_phosphor_oc_v4.py`](scripts/build_phosphor_oc_v4.py) and exact-size **UBIFS in-place deflate recompression** in [`scripts/test_exact_deflate.py`](scripts/test_exact_deflate.py):
@@ -151,7 +165,11 @@ Kompletna nakładka firmware **Phosphor OS v4** dla koparki **Canaan Avalon Nano
 5. **6 ekranów na okrągłym wyświetlaczu LCD 240×240**:
    - `1` Główny Phosphor OS → `2` Zasilanie (`Power Bus`) → `3` 12 Rdzeni (`A3197S CORES`) → `4` Wykres prądowy na żywo (`POWER LIVE` — W/V/A) → `5` Zegar cyfrowy → `6` Własne logo.
 6. **Nowy zestaw 12 ikon systemowych z animowaną obwódką**:
-   - Komplet przeprojektowanych ekranów statusu i alertów (`Welcome`, `Goodbye`, `Mining Start`, `App Connected`, `Night Mode`, `Network Setup`, `Check Wi-Fi`, `Check Pool`, `No USB Device`, `Power Adapter`, `Cooling Down`, `Clean Filter`) w spójnym ciemnym stylu z kolorową animowaną obwódką.
+   - Komplet przeprojektowanych ekranów statusu i alertów (`Welcome`, `Goodbye`, `Mining Start`, `App Connected`, `Night Mode`, `Network Setup`, `Check Wi-Fi`, `Check Pool`, `No USB Device`, `Power Adapter`, `Cooling Down`, `Clean Filter`) w spójnym ciemnym stylu z kolorową animowaną obwódką — wszystkie są aktywnie podpięte w `lcd_init` / `lcd_screen_img_init`.
+7. **Zmiany w sekcji zasilania USB-PD (względem oryginału `2025061101_4ba23e3`)**:
+   - Odblokowanie pracy z nieoryginalnymi zasilaczami USB-PD 3.1 EPR (140 W+) oraz 28 V DC bez fałszywej blokady *Power Adapter* (`power_is_valid = 1`, `is_power_i2c_ok = 1`) oraz odblokowanie trybu `HIGH` (`get_pd_max_mode = 2`), wraz z dostosowaniem `pd_init`, `pd_get_max_power`, `power_primary_polling` i `hashrate_calibration`. *(Uwaga: należy używać zasilacza o wydajności odpowiedniej do wybranego trybu — min. 140 W dla `HIGH` / OC).*
+8. **Własne sterowanie chłodzeniem (Phosphor OS)**:
+   - Tryb **Auto** z własnym celem temperatury (`50–85 °C`) lub 5-punktowa ręczna krzywa PWM wentylatora (zapisywana w `/data/userdata/phosphor-cooling.conf`), z pełnym zachowaniem fabrycznego zabezpieczenia termicznego (`100%` obrotów przy `90 °C`).
 
 ---
 
