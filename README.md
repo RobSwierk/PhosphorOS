@@ -35,6 +35,19 @@ Short-pressing the front capacitive touch button cycles through all **6 screens*
 
 ---
 
+## Redesigned System Status Icons (Animated Perimeter Ring)
+
+All 12 system, startup, network, and alert screens (`assets_lcd/screen_pic/*.png`) have been redesigned in the unified Phosphor OS dark visual language with a **color-coded animated perimeter ring** (green for active/ready states, cyan for system/setup states, amber for warnings and maintenance alerts):
+
+<p align="center">
+  <img src="images/lcd_system_icons.png" width="100%" alt="Phosphor OS — Custom System Status Icons with Animated Perimeter Ring" />
+</p>
+
+- **Status & Lifecycle**: `Welcome` (`hi.png`), `Goodbye` (`bye.png`), `Mining Start` (`9.png`), `App Connected` (`8.png`), `Night Mode` (`7.png`), `Network Setup` (`2.png`)
+- **Diagnostics & Alerts**: `Check Wi-Fi` (`4.png`), `Check Pool` (`3.png`), `No USB Device` (`no_usb.png`), `Power Adapter` (`6.png`), `Cooling Down` (`5.png`), `Clean Filter` (`filter.png`)
+
+---
+
 ## Web Dashboard & Tabs
 
 ### Overview (Telemetry, Live Charts, 8-Mode Tuning + OC Disclaimer, Cooling, Full RGB LED, Custom Logo & Power Controls)
@@ -137,6 +150,8 @@ Kompletna nakładka firmware **Phosphor OS v4** dla koparki **Canaan Avalon Nano
    - Bezpieczny **Reboot** (`ascset|0,reboot,0`) oraz **Power Off** (`sync && poweroff`) z oknem potwierdzenia.
 5. **6 ekranów na okrągłym wyświetlaczu LCD 240×240**:
    - `1` Główny Phosphor OS → `2` Zasilanie (`Power Bus`) → `3` 12 Rdzeni (`A3197S CORES`) → `4` Wykres prądowy na żywo (`POWER LIVE` — W/V/A) → `5` Zegar cyfrowy → `6` Własne logo.
+6. **Nowy zestaw 12 ikon systemowych z animowaną obwódką**:
+   - Komplet przeprojektowanych ekranów statusu i alertów (`Welcome`, `Goodbye`, `Mining Start`, `App Connected`, `Night Mode`, `Network Setup`, `Check Wi-Fi`, `Check Pool`, `No USB Device`, `Power Adapter`, `Cooling Down`, `Clean Filter`) w spójnym ciemnym stylu z kolorową animowaną obwódką.
 
 ---
 
