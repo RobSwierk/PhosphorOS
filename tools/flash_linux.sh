@@ -6,15 +6,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-DEFAULT_IMG="$REPO_DIR/firmware/Phosphor_OS_Nano3S_OC_v4.kdimg"
-EXPECTED_SHA="103cba666dc81089dd6c61ad7974c7998ca71f1361f9a131442be2bfc64d883f"
+DEFAULT_IMG="$REPO_DIR/firmware/Phosphor_OS_Nano3S_OC_v5.kdimg"
+EXPECTED_SHA="54854b97281f38b01472e6c9dabeb1e7f3f3701bef198e1fb9cc2f8ea8eace04"
 
 IMG="${1:-$DEFAULT_IMG}"
 TOOL_DIR="$SCRIPT_DIR/.k230_flash"
 
 if [ ! -f "$IMG" ]; then
   echo "Error: firmware image not found: $IMG"
-  echo "Usage: sudo $0 [path/to/Phosphor_OS_Nano3S_OC_v4.kdimg]"
+  echo "Usage: sudo $0 [path/to/Phosphor_OS_Nano3S_OC_v5.kdimg]"
   exit 1
 fi
 

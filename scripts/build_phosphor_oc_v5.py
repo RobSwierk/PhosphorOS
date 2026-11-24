@@ -10,7 +10,7 @@ phos_kdimg_path = r"C:\Users\robog\.gemini\antigravity\brain\fa92c2a8-e9d0-4bb6-
 phos_mm_path = os.path.join(base_dir, r"phosphor_app\release\linux\app\mm_miner")
 phos_dash_path = os.path.join(base_dir, r"phosphor_app\release\linux\resource\www\html\dashboard.html")
 phos_ubi_path = os.path.join(base_dir, "phosphor_app_ubi.bin")
-out_kdimg_path = os.path.join(base_dir, "Phosphor_OS_Nano3S_OC_v4.kdimg")
+out_kdimg_path = os.path.join(base_dir, "Phosphor_OS_Nano3S_OC_v5.kdimg")
 
 # ==============================================================================
 # 1. Clean Two-Pass RISC-V64 Macro-Assembler
@@ -160,11 +160,17 @@ FGETS_PLT   = 0x00039030
 FCLOSE_PLT  = 0x00039100
 SSCANF_PLT  = 0x00039280
 SNPRINTF_PLT= 0x00039000
+REMOVE_PLT  = 0x00039370
 
 LCD_CREATE_SCREEN = 0x00049388
 LCD_CREATE_LABEL  = 0x00049414
+LCD_SWITCH_SCREEN = 0x0004A5B8
+UPDATA_LCD_ARC    = 0x0004A3AC
+LV_OBJ_CREATE     = 0x0006E472
+LV_OBJ_SET_POS    = 0x000738D6
 LV_OBJ_ALIGN      = 0x000742C8
 LV_OBJ_SET_BG_COL = 0x0007D4F8
+LV_OBJ_SET_BG_OPA = 0x0007D540
 LV_OBJ_SET_TXT_COL= 0x0007E0E2
 LV_COLOR_HEX      = 0x0009BCC6
 LV_LABEL_SET_TEXT = 0x000C19F6
@@ -331,6 +337,7 @@ a.lw("a4", -36, "s0")
 a.li("t0", 18); a.beq("a4", "t0", "sw_power")
 a.li("t0", 19); a.beq("a4", "t0", "sw_cores")
 a.li("t0", 20); a.beq("a4", "t0", "sw_chart")
+a.li("t0", 21); a.beq("a4", "t0", "sw_block")
 # Original lcds_ui[a4].scr
 a.la("a3", LCDS_UI)
 a.mv("a5", "a4")
@@ -364,7 +371,16 @@ a.addi("sp", "sp", -16); a.sd("ra", 8, "sp")
 a.la("t0", BSS_STATE)
 a.ld("a5", 0xC0, "t0")
 a.bne("a5", "zero", "sw_ret")
-a.call(0x000CF860)            # init_chart_screen() @ bno=191 -> returns scr in a0
+a.call(0x000CF848)            # init_chart_screen() @ bno=191 -> returns scr in a0
+a.mv("a5", "a0")
+a.j("sw_ret")
+
+a.label("sw_block")
+a.addi("sp", "sp", -16); a.sd("ra", 8, "sp")
+a.la("t0", BSS_STATE)
+a.ld("a5", 0x108, "t0")
+a.bne("a5", "zero", "sw_ret")
+a.call(0x000CFD68)            # init_block_screen() @ bno=191 -> returns scr in a0
 a.mv("a5", "a0")
 
 a.label("sw_ret")
@@ -492,6 +508,24 @@ a.label("str_ch_w");      a.raw(b"%u.%uW\x00")
 a.label("str_ch_v");      a.raw(b"%u.%uV\x00")
 a.label("str_ch_a");      a.raw(b"%u.%02uA\x00")
 a.label("str_ch_foot");   a.raw(b"%u.%02u TH/s  |  %d\xc2\xb0C\x00")
+a.label("str_p_blk");     a.raw(b"/run/p_blk\x00")
+a.label("str_p_bye");     a.raw(b"/run/p_bye\x00")
+a.label("str_p_ngt");     a.raw(b"/run/p_ngt\x00")
+a.label("str_blk_1");     a.raw(b"BLOCK\x00")
+a.label("str_blk_2");     a.raw(b"FOUND!\x00")
+a.label("str_blk_3");     a.raw(b"BTC SOLO WIN!\x00")
+# 8 firework burst directions (dx, dy as int8 pairs) + 3 burst centers (cx, cy uint8 pairs) + 4 hex colors
+a.align4()
+a.label("fw_dirs")
+for dx, dy in [(0,-4),(3,-3),(4,0),(3,3),(0,4),(-3,3),(-4,0),(-3,-3)]:
+    a.raw(struct.pack("<bb", dx, dy))
+a.label("fw_ctrs")
+for cx, cy in [(116, 54), (66, 158), (166, 158), (116, 116)]:
+    a.raw(struct.pack("<BB", cx, cy))
+a.align4()
+a.label("fw_cols")
+for col in (0xFFD166, 0xFF5E5B, 0x8DC5FF, 0x9AEF9E):
+    a.raw(struct.pack("<I", col))
 
 # Fixed-width 8-byte mode strings (indexed by mode * 8)
 a.align4()
@@ -799,11 +833,11 @@ b.ld("s4", 120, "sp"); b.ld("s5", 112, "sp"); b.ld("s6", 104, "sp"); b.ld("s7", 
 b.addi("sp", "sp", 160)
 b.ret()
 
-# Pad to 0x000CF860 so init_chart_screen has a fixed known entry address!
+# Pad to 0x000CF848 so init_chart_screen has a fixed known entry address!
 cur_pc = b.pc()
-print(f"Cores screen code ends at 0x{cur_pc:08x} (target <= 0x000cf860)")
-assert cur_pc <= 0x000CF860, f"Cores screen code overflowed 0x000cf860: 0x{cur_pc:08x}"
-b.raw(b"\x00" * (0x000CF860 - cur_pc))
+print(f"Cores screen code ends at 0x{cur_pc:08x} (target <= 0x000cf848)")
+assert cur_pc <= 0x000CF848, f"Cores screen code overflowed 0x000cf848: 0x{cur_pc:08x}"
+b.raw(b"\x00" * (0x000CF848 - cur_pc))
 
 # --- 4E. init_chart_screen @ 0x000CF860 (Live W / V / A chart) ---
 # BSS_STATE offsets:
@@ -933,9 +967,88 @@ b.ld("ra", 136, "sp"); b.ld("s1", 128, "sp"); b.ld("s2", 120, "sp"); b.ld("s3", 
 b.addi("sp", "sp", 144)
 b.ret()
 
+# Pad to 0x000CFD68 for init_block_screen (Block Found fireworks!)
+cur_pc = b.pc()
+print(f"Chart screen code ends at 0x{cur_pc:08x} (target <= 0x000cfd68)")
+assert cur_pc <= 0x000CFD68
+b.raw(b"\x00" * (0x000CFD68 - cur_pc))
+
+# --- 4G. init_block_screen @ 0x000CFD80 (Animated Block Found fireworks!) ---
+# BSS_STATE: +0x108: scr_block, +0x110..+0x148: 8 spark objs, +0x150: uint32 frame
+b.label("init_block_screen")
+b.addi("sp", "sp", -48)
+b.sd("ra", 40, "sp"); b.sd("s1", 32, "sp"); b.sd("s2", 24, "sp"); b.sd("s3", 16, "sp"); b.sd("s4", 8, "sp")
+b.la("s1", BSS_STATE)
+b.call(LCD_CREATE_SCREEN); b.mv("s3", "a0"); b.sd("s3", 0x108, "s1")
+b.li("a0", 0x030810); b.call(LV_COLOR_HEX); b.mv("a1", "a0"); b.mv("a0", "s3"); b.li("a2", 0); b.call(LV_OBJ_SET_BG_COL)
+# Create 8 circular firework sparks (8x8 px) in loop s2 = 0..7
+b.li("s2", 0)
+b.label("ib_sp")
+b.mv("a0", "s3"); b.call(LV_OBJ_CREATE); b.mv("s4", "a0")
+b.slli("t0", "s2", 3); b.addi("t0", "t0", 0x110); b.add("t0", "s1", "t0"); b.sd("s4", 0, "t0")
+b.mv("a0", "s4"); b.li("a1", 8); b.li("a2", 8); b.call(LV_OBJ_SET_SIZE)
+b.mv("a0", "s4"); b.li("a1", 4); b.li("a2", 0); b.call(LV_OBJ_SET_RADIUS)
+b.mv("a0", "s4"); b.li("a1", 0); b.li("a2", 0); b.call(LV_OBJ_SET_BD_W)
+b.mv("a0", "s4"); b.li("a1", 255); b.li("a2", 0); b.call(LV_OBJ_SET_BG_OPA)
+b.li("t1", 4); b.remu("t0", "s2", "t1"); b.slli("t0", "t0", 2); b.la("t1", L_A["fw_cols"]); b.add("t0", "t1", "t0"); b.lw("a0", 0, "t0")
+b.call(LV_COLOR_HEX); b.mv("a1", "a0"); b.mv("a0", "s4"); b.li("a2", 0); b.call(LV_OBJ_SET_BG_COL)
+b.addi("s2", "s2", 1); b.li("t0", 8); b.blt("s2", "t0", "ib_sp")
+# Gold BLOCK / FOUND! + green BTC SOLO WIN!
+emit_make_lbl(b, "s3", FONT_32, L_A["str_blk_1"], 0xFFD166, 0, -24, None)
+emit_make_lbl(b, "s3", FONT_32, L_A["str_blk_2"], 0xFFD166, 0,  14, None)
+emit_make_lbl(b, "s3", FONT_14, L_A["str_blk_3"], 0x9AEF9E, 0,  58, None)
+b.la("a0", "anim_block_screen"); b.li("a1", 120); b.li("a2", 0); b.call(LV_TIMER_CREATE)
+b.mv("a0", "s3")
+b.ld("ra", 40, "sp"); b.ld("s1", 32, "sp"); b.ld("s2", 24, "sp"); b.ld("s3", 16, "sp"); b.ld("s4", 8, "sp")
+b.addi("sp", "sp", 48); b.ret()
+
+# --- 4H. anim_block_screen(lv_timer_t *) ---
+b.label("anim_block_screen")
+b.addi("sp", "sp", -48)
+b.sd("ra", 40, "sp"); b.sd("s1", 32, "sp"); b.sd("s2", 24, "sp"); b.sd("s3", 16, "sp"); b.sd("s4", 8, "sp"); b.sd("s5", 0, "sp")
+b.la("s1", BSS_STATE)
+b.lw("t0", 0x150, "s1"); b.addi("t0", "t0", 1); b.sw("t0", 0x150, "s1")
+# step = t0 % 16 (radius = 3 + step*1), burst_id = (t0 / 16) % 4
+b.li("t1", 16); b.remu("s3", "t0", "t1"); b.addi("s3", "s3", 3)   # s3 = radius scale (3..18)
+b.divu("t0", "t0", "t1"); b.li("t1", 4); b.remu("t0", "t0", "t1")
+b.slli("t0", "t0", 1); b.la("t1", L_A["fw_ctrs"]); b.add("t0", "t1", "t0")
+b.lbu("s4", 0, "t0"); b.lbu("s5", 1, "t0")                        # s4=cx, s5=cy
+b.li("s2", 0)
+b.label("ab_lp")
+b.slli("t0", "s2", 1); b.la("t1", L_A["fw_dirs"]); b.add("t0", "t1", "t0")
+b.lb("a1", 0, "t0"); b.lb("a2", 1, "t0")
+b.mul("a1", "a1", "s3"); b.add("a1", "a1", "s4")
+b.mul("a2", "a2", "s3"); b.add("a2", "a2", "s5")
+b.slli("t0", "s2", 3); b.addi("t0", "t0", 0x110); b.add("t0", "s1", "t0"); b.ld("a0", 0, "t0")
+b.call(LV_OBJ_SET_POS)
+b.addi("s2", "s2", 1); b.li("t0", 8); b.blt("s2", "t0", "ab_lp")
+b.ld("ra", 40, "sp"); b.ld("s1", 32, "sp"); b.ld("s2", 24, "sp"); b.ld("s3", 16, "sp"); b.ld("s4", 8, "sp"); b.ld("s5", 0, "sp")
+b.addi("sp", "sp", 48); b.ret()
+
 block_b = b.build()
 print(f"Block B (0x000CF000): {len(block_b)} bytes (ends at 0x{0xCF000+len(block_b):08x}, limit 0x000d0000)")
 assert 0x000CF000 + len(block_b) <= 0x000D0000
+
+# --- 4I. Block C @ 0x000CEE60 (bno=190, unused lv_spangroup_event, 416B): hook_lcd_poll + chk_t ---
+c = Asm(0x000CEE60)
+c.label("chk_t")
+c.addi("sp", "sp", -16); c.sd("ra", 8, "sp"); c.sd("s1", 0, "sp")
+c.mv("s1", "a1"); c.call(REMOVE_PLT); c.bne("a0", "zero", "ct_no")
+c.mv("a0", "s1"); c.call(LCD_SWITCH_SCREEN)
+c.label("ct_no")
+c.ld("ra", 8, "sp"); c.ld("s1", 0, "sp"); c.addi("sp", "sp", 16); c.ret()
+
+c.label("hook_lcd_poll")
+c.addi("sp", "sp", -16); c.sd("ra", 8, "sp")
+c.addi("a0", "s0", -240); c.call(UPDATA_LCD_ARC)
+c.la("a0", L_A["str_p_blk"]); c.li("a1", 21); c.call("chk_t")
+c.la("a0", L_A["str_p_bye"]); c.li("a1", 3);  c.call("chk_t")
+c.la("a0", L_A["str_p_ngt"]); c.li("a1", 11); c.call("chk_t")
+c.ld("ra", 8, "sp"); c.addi("sp", "sp", 16); c.ret()
+block_c = c.build()
+L_C = c.labels
+print(f"Block C (0x000CEE60): {len(block_c)} bytes (ends at 0x{0xCEE60+len(block_c):08x}, limit 0x000cf000)")
+assert 0x000CEE60 + len(block_c) <= 0x000CF000
 
 # ==============================================================================
 # 5. Patch Phosphor OS mm_miner (ino=118)
@@ -1015,6 +1128,12 @@ hi20, lo12 = split_pcrel(0x00045432, L_A["hook_hw_update"])
 patch_mm_code(0x00045432, struct.pack("<II", enc_u(0x17, "t0", hi20), enc_i(0x67, "zero", 0, "t0", lo12)) + b"\x00" * 8,
               expected=bytes.fromhex("8327c4fd812789e78357a4fd8127e1c7"))
 
+# Hook 6: updata_lcd_data @ 0x0004a6c0..0x0004a6ca (10B) -> call hook_lcd_poll (in Block C) + c.nop
+patch_mm_code(0x0004A6C0, struct.pack("<IIH", *emit_call_raw(0x0004A6C0, L_C["hook_lcd_poll"]), 0x0001),
+              expected=bytes.fromhex("930704f13e85eff07fce"))
+
+# Write Block C @ 0x000CEE60..0x000CF000 (bno=190, unused lv_spangroup_event)
+mm[0x000CEE60 - 0x10000 : 0x000CF000 - 0x10000] = block_c + b"\x00" * (0x1A0 - len(block_c))
 # Write Block B @ 0x000CF000..0x000D0000 (bno=191, unused lv_spangroup)
 mm[0x000CF000 - 0x10000 : 0x000D0000 - 0x10000] = block_b + b"\x00" * (0x1000 - len(block_b))
 # Zero unused Bitstream Vera license text @ 0x00607000..0x006078a0 so bno=478 compresses tightly!
@@ -1060,11 +1179,20 @@ dev_marker = """      <p id="filter-note">Filter counter unavailable.</p>
       <button id="filter-reset" disabled>Reset cleaned filter</button>
     </article>"""
 assert dev_marker in full_html
-dev_html = """      <div class="actions" style="gap:5px;align-items:center"><select id="lf" style="width:auto"><option value="1">Solid</option><option value="2">Flash</option><option value="3">Breath</option><option value="4">Rainbow</option><option value="0">Off</option></select><input id="lc" type="color" value="#0088ff" style="width:36px;height:28px;padding:1px"><input id="lb" type="range" min="10" max="100" value="100" style="width:76px"><button id="la" type="button">Apply LED</button></div>
-      <p id="filter-note">Filter N/A.</p>
-      <div class="actions"><button id="filter-reset" disabled>Reset filter</button><input id="li" type="file" accept="image/*" hidden><button onclick="el('li').click()" type="button">Upload Logo</button><button id="lr" type="button">Reset Logo</button><button id="sr" type="button">Reboot</button><button id="so" type="button" style="color:#ff8a8a">Power Off</button></div>
+full_html = re.sub(r' aria-label="[^"]*"', "", full_html)
+full_html = re.sub(r"el\('filter-reset'\)\.onclick\s*=\s*\(\)\s*=>\s*\{[^}]+\};?", "", full_html)
+full_html = re.sub(r"const filter\s*=\s*num\(stat\.Filter\);\s*show\('filter-note'[^;]+;", "", full_html)
+full_html = full_html.replace("'filter-reset',", "").replace(",'filter-reset'", "")
+dev_html = """      <div class="actions" style="gap:5px;align-items:center"><select id="lf" style="width:auto"><option value="1">Solid</option><option value="2">Flash</option><option value="3">Breath</option><option value="4">Rainbow</option><option value="0">Off</option></select><input id="lc" type="color" value="#0088ff" style="width:36px;height:28px;padding:1px"><input id="lb" type="range" min="10" max="100" value="100" style="width:76px"><button id="la">Apply LED</button></div>
+      <div class="actions"><input id="li" type="file" accept="image/*" hidden><button onclick="el('li').click()">Upload Logo</button><button id="lr">Reset Logo</button><button id="sr">Reboot</button><button id="so" style="color:#ff8a8a">Power Off</button></div>
+      <p><small>Logo: PNG/JPG/WebP (240x240).</small></p>
     </article>"""
 full_html = full_html.replace(dev_marker, dev_html, 1)
+
+# Add Test Block button next to Export JSON in Diagnostics tab
+exp_marker = '<button id="export" disabled>'
+assert exp_marker in full_html
+full_html = full_html.replace(exp_marker, '<button id="tb">Test Block</button>' + exp_marker, 1)
 
 # Remove legacy 3-point curve migration dead code in loadCooling (Phosphor uses curve5)
 legacy_curve = """    if (mode === 'curve' && parsed.length === 3) {
@@ -1092,18 +1220,21 @@ full_html = full_html.replace(
     "if (await sc(coolingPath, setting) !== 'SAVED') throw 0;", 1
 )
 
-oc_js = r"""const sh=apiShell,rc=p=>sh('if [ -f '+p+' ]; then cat '+p+'; fi'),sc=(p,v)=>sh(v?'f=$(mktemp '+p+'.XXXXXX)||exit 1;printf %s \x27'+v+'\x27>"$f"&&mv -f "$f" '+p+'&&echo SAVED;rm -f "$f"':'rm -f '+p+'&&echo SAVED');
-const ocP='/data/userdata/phosphor-oc.conf',ocB=[...qa('#om button')],ocD=[[0,0,0],[-40,-52,-12],[-20,-26,-6],[0,-26,-3],[20,-26,4],[20,26,7],[35,52,10],[50,78,12]];let ocL=0,ledI=0;
-const dOc=()=>{for(const b of ocB){b.disabled=!switchable||sending;b.setAttribute('aria-pressed',+b.value===ocL);}const t=ocD[ocL]||ocD[0];show('on',ocL?(t[0]>0?'+':'')+t[0]+' MHz / '+(t[1]>0?'+':'')+t[1]+' mV / '+(t[2]>0?'+':'')+t[2]+' W':'Stock (0 MHz / 0 mV)');};
+oc_js = r"""const sh=apiShell,wt=t=>new Promise(r=>setTimeout(r,t)),rc=p=>sh('if [ -f '+p+' ]; then cat '+p+'; fi'),sc=(p,v)=>sh(v?'f=$(mktemp '+p+'.XXXXXX)||exit 1;printf %s \x27'+v+'\x27>"$f"&&mv -f "$f" '+p+'&&echo SAVED;rm -f "$f"':'rm -f '+p+'&&echo SAVED');
+const ocP='/data/userdata/phosphor-oc.conf',ocB=[...qa('#om button')],ocD=[[0,0,0],[-40,-52,-12],[-20,-26,-6],[0,-26,-3],[20,-26,4],[20,26,7],[35,52,10],[50,78,12]];let ocL=0,ledI=0,blkC=0;
+const dOc=()=>{for(const b of ocB){b.disabled=!switchable||sending;b.setAttribute('aria-pressed',+b.value===ocL);}const t=ocD[ocL]||ocD[0];show('on',ocL?(t[0]>0?'+':'')+t[0]+' MHz / '+(t[1]>0?'+':'')+t[1]+' mV / '+(t[2]>0?'+':'')+t[2]+' W':'Stock');};
 async function loadOc(){const m=/^oc ([1-7])$/.exec((await rc(ocP)).trim());ocL=m?+m[1]:0;dOc();}
-for(const b of ocB)b.onclick=async()=>{const l=+b.value;if(sending||!switchable||l<0||l>7)return;sending=true;for(const x of[...modeButtons,...hardwareButtons,...ocB])x.disabled=true;fb('Applying...');try{if(await sc(ocP,l?'oc '+l:'')!=='SAVED')throw 0;ocL=l;const c=currentProfile,a=c===2?1:2;await rpc('ascset|0,workmode,set,'+a);await new Promise(r=>setTimeout(r,1200));await rpc('ascset|0,workmode,set,'+c);fb('Saved.');}catch{fb('Err');}finally{sending=false;dOc();refresh();}};
+for(const b of ocB)b.onclick=async()=>{const l=+b.value;if(sending||!switchable||l<0||l>7)return;sending=true;for(const x of[...modeButtons,...hardwareButtons,...ocB])x.disabled=true;fb('Applying...');try{if(await sc(ocP,l?'oc '+l:'')!=='SAVED')throw 0;ocL=l;const c=currentProfile,a=c===2?1:2;await rpc('ascset|0,workmode,set,'+a);await wt(1200);await rpc('ascset|0,workmode,set,'+c);fb('Saved.');}catch{fb('Err');}finally{sending=false;dOc();refresh();}};
 const _oR=renderStats;renderStats=raw=>{_oR(raw);dOc();if(!ledI){const m=/LEDUser\[(\d+)-(\d+)-\d+-(\d+)-(\d+)-(\d+)\]/.exec(raw);if(m){ledI=1;el('lf').value=m[1];el('lb').value=m[2];el('lc').value='#'+[m[3],m[4],m[5]].map(n=>(+n).toString(16).padStart(2,'0')).join('');}}};
 const go=(m,f)=>async()=>{fb(m);try{await f();}catch{fb('Err');}},wd='/data/userconfig/wallpaper';
-el('la').onclick=go('LED...',async()=>{const f=+el('lf').value,r=el('lc').value;if(f>0)await rpc('ascset|0,ledmode,0');await rpc('ascset|0,ledset,'+f+'-'+el('lb').value+'-50-'+[1,3,5].map(i=>parseInt(r.slice(i,i+2),16)).join('-'));fb('LED OK');});
-el('li').onchange=async e=>{const f=e.target.files[0];if(!f)return;await go('Logo...',async()=>{const i=await createImageBitmap(f),c=dc('canvas'),x=c.getContext('2d'),s=Math.min(i.width,i.height);c.width=c.height=240;x.beginPath();x.arc(120,120,120,0,7);x.clip();x.drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,240,240);const b=c.toDataURL('image/png').split(',')[1];await sh('mkdir -p '+wd+'&&rm -f '+wd+'/* /tmp/l');for(let k=0;k<b.length;k+=2800)await sh('printf %s '+b.slice(k,k+2800)+'>>/tmp/l');await sh('base64 -d /tmp/l>'+wd+'/wallpaper_0.png&&rm -f /tmp/l&&sync');fb('Logo saved. Reboot.');})();e.target.value='';};
-el('lr').onclick=()=>confirm('Reset logo?')&&go('Reset...',async()=>{await sh('rm -f '+wd+'/*&&sync');fb('Logo reset. Reboot.');})();
-el('sr').onclick=()=>confirm('Reboot?')&&go('Rebooting...',()=>rpc('ascset|0,reboot,0'))();
-el('so').onclick=()=>confirm('Power off?')&&go('Power off...',()=>sh('sync&&poweroff'))();
+el('la').onclick=go('LED...',async()=>{const f=+el('lf').value,br=+el('lb').value,r=el('lc').value;if(f)await rpc('ascset|0,ledmode,0');await rpc('ascset|0,ledset,'+f+'-'+br+'-50-'+[1,3,5].map(i=>Math.round(parseInt(r.slice(i,i+2),16)*br/100)).join('-'));fb('LED OK');});
+el('led-off').onclick=go('Night...',async()=>{await sh('touch /run/p_ngt');await wt(1400);await rpc('ascset|0,ledmode,1');fb('Night');});
+el('li').onchange=async e=>{const f=e.target.files[0];if(!f)return;await go('Logo...',async()=>{const i=await createImageBitmap(f),c=dc('canvas'),x=c.getContext('2d'),s=Math.min(i.width,i.height);c.width=c.height=240;x.beginPath();x.arc(120,120,120,0,7);x.clip();x.drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,240,240);const b=c.toDataURL('image/png').split(',')[1];await sh('mkdir -p '+wd+'&&rm -f '+wd+'/* /tmp/l');for(let k=0;k<b.length;k+=640){fb('Logo '+mf(k*100/b.length)+'%');await sh('printf %s '+b.slice(k,k+640)+'>>/tmp/l');}await sh('base64 -d /tmp/l>'+wd+'/wallpaper_0.png&&rm -f /tmp/l&&sync');fb('Logo saved. Reboot.');})();e.target.value='';};
+el('lr').onclick=()=>confirm('Reset logo?')&&go('Reset...',async()=>{await sh('rm -f '+wd+'/*&&sync');fb('Reset. Reboot.');})();
+el('sr').onclick=()=>confirm('Reboot?')&&go('Reboot...',()=>rpc('ascset|0,reboot,0'))();
+el('so').onclick=()=>confirm('Power off?')&&go('Power off...',async()=>{await sh('touch /run/p_bye');await wt(1500);await sh('sync&&poweroff');})();
+if(el('tb'))el('tb').onclick=go('Block!',()=>sh('touch /run/p_blk'));
+setInterval(async()=>{try{const m=/Found Blocks=(\d+)/.exec(await rpc('summary'));if(m&&+m[1]>blkC){blkC=+m[1];await sh('touch /run/p_blk');}}catch{}},15000);
 loadOc().catch(()=>{});
 loadCooling().catch(() => {});"""
 full_html = full_html.replace(load_marker, oc_js, 1)
@@ -1150,9 +1281,9 @@ for old_s, new_s in [
 ]:
     full_html = full_html.replace(old_s, new_s)
 full_html = full_html.replace("show('feedback', ", "fb(").replace("show('feedback',", "fb(")
-full_html = full_html.replace("document.querySelectorAll(", "qa(").replace("Math.floor(", "mf(")
+full_html = full_html.replace("document.querySelectorAll(", "qa(").replace("Math.floor(", "mf(").replace("Math.round(", "mr(")
 full_html = full_html.replace("el('cooling-mode')", "_cm").replace("el('cooling-target')", "_ct").replace("el('save-cooling')", "_sb")
-full_html = full_html.replace("const el = id => document.getElementById(id);", "const el=id=>document.getElementById(id),dc=t=>document.createElement(t),fb=m=>show('feedback',m),qa=s=>document.querySelectorAll(s),mf=Math.floor,_cm=el('cooling-mode'),_ct=el('cooling-target'),_sb=el('save-cooling');", 1)
+full_html = full_html.replace("const el = id => document.getElementById(id);", "const el=id=>document.getElementById(id),dc=t=>document.createElement(t),fb=m=>show('feedback',m),qa=s=>document.querySelectorAll(s),mf=Math.floor,mr=Math.round,_cm=el('cooling-mode'),_ct=el('cooling-target'),_sb=el('save-cooling');", 1)
 
 # Safe JS whitespace minifier (preserves strings, template literals, and regexes verbatim)
 def minify_js_safe(js):
@@ -1229,7 +1360,10 @@ for old_id, new_id in [
     ("poolProgress", "pPr"), ("previousPool", "pvP"), ("lastPoolWork", "lPW"),
     ("curveGraph", "cG"), ("shellPending", "sP"), ("snapshot", "sn"),
     ("response", "rs"), ("refreshing", "rfs"), ("switchable", "swb"),
-    ("previous", "pv"), ("temperature", "tmp"),
+    ("previous", "pv"), ("temperature", "tmp"), ("renderDevice", "rDv"),
+    ("renderCharts", "rCh"), ("renderAsics", "rAs"), ("drawChart", "dCh"),
+    ("apiShell", "aS"), ("sendShell", "sS"), ("setting", "st"),
+    ("points", "pt"), ("parsed", "pr"), ("numbers", "nb"),
 ]:
     js_part = re.sub(r"\b" + old_id + r"\b", new_id, js_part)
 full_html = html_part + minify_js_safe(js_part) + full_html[j2:]
