@@ -36,6 +36,12 @@ Short-pressing the front touch button cycles through all 6 normal screens:
 | **6** | **Custom Logo** | `3` | Default logo (`logo_b.png`) or your own 240x240 PNG/JPG/WebP uploaded directly from the Web UI |
 | *Event* | **BLOCK FOUND! Fireworks** | `21` *(event-only)* | Animated 8-spark 4-color fireworks screen (`BLOCK / FOUND! / BTC SOLO WIN!`) that only activates when `Found Blocks` increments (or via the **Test Block** button in the **Diagnostics** tab). Not part of the regular button rotation; tap the front button to return to normal screens. |
 
+### Event-Only `BLOCK FOUND!` Fireworks Screen
+
+<p align="center">
+  <img src="images/lcd_block_found.png" width="100%" alt="Phosphor OS v5 - Event-Only BLOCK FOUND! Fireworks Screen" />
+</p>
+
 ---
 
 ## Redesigned System Status Icons (Animated Perimeter Ring)
