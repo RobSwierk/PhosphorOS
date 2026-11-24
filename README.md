@@ -34,7 +34,7 @@ Short-pressing the front touch button cycles through all 6 normal screens:
 | **4** | **Power Live Chart** | `27` | Real-time 48-second 3-series LVGL `lv_chart` (`176x104 px`): **Watts** (`#F3A965`, 0-150 W), **Volts** (`#8DC5FF`, 20-30 V), and **Amps** (`#9AEF9E`, 0-6 A), with live numeric values and `TH/s \| °C` footer |
 | **5** | **Digital Clock** | `2` | Phosphor OS digital clock with 60-second perimeter tick ring, weekday, seconds badge and date |
 | **6** | **Custom Logo** | `3` | Default logo (`logo_b.png`) or your own 240x240 PNG/JPG/WebP uploaded directly from the Web UI |
-| *Event* | **BLOCK FOUND! Fireworks** | `21` *(event-only)* | Animated 8-spark 4-color fireworks screen (`BLOCK / FOUND! / BTC SOLO WIN!`) that only activates when `Found Blocks` increments (or via the **Test Block** button in the **Diagnostics** tab). Not part of the regular button rotation; tap the front button to return to normal screens. |
+| *Event* | **BLOCK FOUND! Fireworks** | `21` *(event-only)* | Animated 8-spark 4-color fireworks screen (`BLOCK / FOUND! / SOLO MINING WIN!`) that only activates when `Found Blocks` increments (or via the **Test Block** button in the **Diagnostics** tab). Not part of the regular button rotation; tap the front button to return to normal screens. |
 
 ### Event-Only `BLOCK FOUND!` Fireworks Screen
 
@@ -80,7 +80,7 @@ All 12 system, startup, network, and alert screens (`assets_lcd/screen_pic/*.png
 
 | File | Description | Size | SHA-256 / Info |
 | :--- | :--- | ---: | :--- |
-| [`firmware/Phosphor_OS_Nano3S_OC_v5.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v5.kdimg) | **Firmware v5** (`app_ubi` only, `0x04200000`) | 4.69 MB | `D8FAED61BB00A9D48ABEC00F147651568F5285D79818D78A88385C7EBC839EA6` |
+| [`firmware/Phosphor_OS_Nano3S_OC_v5.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v5.kdimg) | **Firmware v5** (`app_ubi` only, `0x04200000`) | 4.69 MB | `AD33E8FF1AEBB1D1D4FC9FC5D5E1E29BE72275F2DED92994B71B1E66458E6D27` |
 | [`tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip`](tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip) | **Original Canaan Avalon Home Series Firmware Upgrade Tool (Windows v2.2.1)** | 50.19 MB | Official Windows flasher |
 | [`tools/flash_linux.sh`](tools/flash_linux.sh) | **Linux CLI Flasher Script** (`x86_64` / `arm64`, uses official [`kendryte/k230_flash`](https://github.com/kendryte/k230_flash/releases)) | 2 KB | Linux CLI + [`k230_burning_tool`](https://github.com/kendryte/k230_burning_tool/releases) GUI |
 
@@ -167,7 +167,7 @@ Built from the base Phosphor OS `app_ubi` image using a two-pass **RISC-V64 macr
 
 ### Windows
 1. Download [`firmware/Phosphor_OS_Nano3S_OC_v5.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v5.kdimg) and unpack [`tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip`](tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip).
-2. Verify SHA-256 of the `.kdimg` file: `D8FAED61BB00A9D48ABEC00F147651568F5285D79818D78A88385C7EBC839EA6`.
+2. Verify SHA-256 of the `.kdimg` file: `AD33E8FF1AEBB1D1D4FC9FC5D5E1E29BE72275F2DED92994B71B1E66458E6D27`.
 3. Run **Avalon Home Series Firmware Upgrade Tool**, select `Phosphor_OS_Nano3S_OC_v5.kdimg`, connect your Avalon Nano 3S in upgrade mode, and flash (only `app_ubi` is updated).
 
 ### Linux (`x86_64` / `arm64`)
@@ -202,7 +202,7 @@ Kompletna nakładka firmware **Phosphor OS v5** dla koparki **Canaan Avalon Nano
 4. **Poprawione ikony `Goodbye`, `Night Mode` oraz `Mining Start` (2,5-3,0 s)**:
    - Dodano lekki hook `hook_lcd_poll` w `mm_miner`: **Power Off** wyświetla `GOODBYE` (`bye.png`) przez **2,5 s** zanim wykona `sync && poweroff`, **Night mode** pokazuje `NIGHT MODE` (`7.png`) przez **2,5 s** przed zgaszeniem podświetlenia, a **Mining Start** (`9.png`) włącza się automatycznie na **~2,8 s** w momencie rozpoczęcia wydobycia po starcie, po czym wraca na ekran główny.
 5. **Nowy ekran fajerwerków `BLOCK FOUND!` (tylko po trafieniu bloku)**:
-   - Animowany ekran 8-iskrowych fajerwerków (`BLOCK / FOUND! / BTC SOLO WIN!`), który nie pojawia się w normalnej rotacji 6 ekranów, tylko aktywuje się automatycznie po wzroście `Found Blocks` w `summary` (lub na żądanie przyciskiem **Test Block** w zakładce **Diagnostics**). Dotknięcie przycisku na obudowie wraca do zwykłej rotacji.
+   - Animowany ekran 8-iskrowych fajerwerków (`BLOCK / FOUND! / SOLO MINING WIN!`), który nie pojawia się w normalnej rotacji 6 ekranów, tylko aktywuje się automatycznie po wzroście `Found Blocks` w `summary` (lub na żądanie przyciskiem **Test Block** w zakładce **Diagnostics**). Dotknięcie przycisku na obudowie wraca do zwykłej rotacji.
 6. **Pełny zestaw funkcji z poprzednich wersji**:
    - 8-stopniowy przełącznik `Tuning (UC / UV / OC)` dopasowany do kroku DAC `26 mV` + ostrzeżenie OC, 6 ekranów LCD 240x240, 12 ikon systemowych z animowaną obwódką, odblokowanie zasilaczy USB-PD 140 W+ / 28 V DC oraz 5-punktowa krzywa wentylatora.
 

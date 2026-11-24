@@ -513,7 +513,7 @@ a.label("str_p_bye");     a.raw(b"/run/p_bye\x00")
 a.label("str_p_ngt");     a.raw(b"/run/p_ngt\x00")
 a.label("str_blk_1");     a.raw(b"BLOCK\x00")
 a.label("str_blk_2");     a.raw(b"FOUND!\x00")
-a.label("str_blk_3");     a.raw(b"BTC SOLO WIN!\x00")
+a.label("str_blk_3");     a.raw(b"SOLO MINING WIN!\x00")
 # 8 firework burst directions (dx, dy as int8 pairs) + 3 burst centers (cx, cy uint8 pairs) + 4 hex colors
 a.align4()
 a.label("fw_dirs")
