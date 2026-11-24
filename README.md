@@ -1,4 +1,4 @@
-# Phosphor OS v4 — OC / UC / UV, Extended LCD Telemetry & Full Device Control for Canaan Avalon Nano 3S
+# Phosphor OS v4 - OC / UC / UV, Extended LCD Telemetry & Full Device Control for Canaan Avalon Nano 3S
 
 <p align="center">
   <a href="https://ko-fi.com/neuragrowth">
