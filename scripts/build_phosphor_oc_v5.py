@@ -1067,6 +1067,11 @@ def patch_mm_code(vaddr, new_bytes, expected=None):
 patch_mm_code(0x0003B9E0, struct.pack("<II", *emit_call_raw(0x0003B9E0, L_A["phosphor_apply_oc"])),
               expected=struct.pack("<II", 0xFD045703, 0x00E79523))
 
+# Filter alert threshold @ filtermesh_update (0x0003b0d2): change 120000 min (83.3d) -> 43200 min (30d = 720h)
+# 0x67ad = c.lui a5, 0xb (45056); addi a5, a5, -1857 -> 43199 (triggers CLEAN FILTER icon at >= 43200 min)
+patch_mm_code(0x0003B0D2, struct.pack("<HI", 0x67AD, enc_i(0x13, "a5", 0, "a5", -1857)),
+              expected=struct.pack("<HI", 0x67F5, 0x4BF78793))
+
 # Hook 2: lcd_regular_show_switch @ 0x000450b6..0x000450e5 (replace %4 wrap with call to hook_regular_switch)
 # Original 0x450b6..0x450e2 computes next show_id in a5 and stores to -18(s0), then jumps to 0x450e6!
 # At 0x450b0: lhu a5, -18(s0); sext.w a5, a5 -> at 0x450b6 a5 holds current show_id!
@@ -1169,7 +1174,7 @@ oc_card_html = """      <p id="mode-note">Waiting for controller status.</p>
         <button value="1" disabled>UC -2</button><button value="2" disabled>UC -1</button><button value="3" disabled>UV</button><button value="0" disabled>Stock</button><button value="4" disabled>Eff OC</button><button value="5" disabled>OC +1</button><button value="6" disabled>OC +2</button><button value="7" disabled>OC +3</button>
       </div>
       <p id="on">Select preset.</p>
-      <p style="color:#f3a965;font-size:12px">Warning: OC/voltage tuning is at your own risk and may damage hardware. No liability.</p>
+      <p style="color:#f3a965;font-size:12px">OC/voltage tuning is at your own risk; may damage hardware. No liability.</p>
     </article>
   </div>"""
 full_html = full_html.replace(power_card_marker, oc_card_html, 1)
@@ -1184,8 +1189,8 @@ full_html = re.sub(r"el\('filter-reset'\)\.onclick\s*=\s*\(\)\s*=>\s*\{[^}]+\};?
 full_html = re.sub(r"const filter\s*=\s*num\(stat\.Filter\);\s*show\('filter-note'[^;]+;", "", full_html)
 full_html = full_html.replace("'filter-reset',", "").replace(",'filter-reset'", "")
 dev_html = """      <div class="actions" style="gap:5px;align-items:center"><select id="lf" style="width:auto"><option value="1">Solid</option><option value="2">Flash</option><option value="3">Breath</option><option value="4">Rainbow</option><option value="0">Off</option></select><input id="lc" type="color" value="#0088ff" style="width:36px;height:28px;padding:1px"><input id="lb" type="range" min="10" max="100" value="100" style="width:76px"><button id="la">Apply LED</button></div>
-      <div class="actions"><input id="li" type="file" accept="image/*" hidden><button onclick="el('li').click()">Upload Logo</button><button id="lr">Reset Logo</button><button id="sr">Reboot</button><button id="so" style="color:#ff8a8a">Power Off</button></div>
-      <p><small>Logo: PNG/JPG/WebP (240x240).</small></p>
+      <div class="actions"><input id="li" type="file" accept="image/*" hidden><button onclick="el('li').click()">Upload Logo</button><button id="lr">Reset Logo</button><button id="fr">Reset Filter</button><button id="sr">Reboot</button><button id="so" style="color:#ff8a8a">Power Off</button></div>
+      <p><span id="fn">Filter: --%</span> | <small>Logo: PNG/JPG/WebP 240x240</small></p>
     </article>"""
 full_html = full_html.replace(dev_marker, dev_html, 1)
 
@@ -1220,22 +1225,25 @@ full_html = full_html.replace(
     "if (await sc(coolingPath, setting) !== 'SAVED') throw 0;", 1
 )
 
-oc_js = r"""const sh=apiShell,wt=t=>new Promise(r=>setTimeout(r,t)),rc=p=>sh('if [ -f '+p+' ]; then cat '+p+'; fi'),sc=(p,v)=>sh(v?'f=$(mktemp '+p+'.XXXXXX)||exit 1;printf %s \x27'+v+'\x27>"$f"&&mv -f "$f" '+p+'&&echo SAVED;rm -f "$f"':'rm -f '+p+'&&echo SAVED');
+oc_js = r"""const as=s=>rpc('ascset|0,'+s),wt=t=>new Promise(r=>setTimeout(r,t)),rc=p=>aS('if [ -f '+p+' ]; then cat '+p+'; fi'),sc=(p,v)=>aS(v?'f=$(mktemp '+p+'.XXXXXX)||exit 1;printf %s \x27'+v+'\x27>"$f"&&mv -f "$f" '+p+'&&echo SAVED;rm -f "$f"':'rm -f '+p+'&&echo SAVED');
 const ocP='/data/userdata/phosphor-oc.conf',ocB=[...qa('#om button')],ocD=[[0,0,0],[-40,-52,-12],[-20,-26,-6],[0,-26,-3],[20,-26,4],[20,26,7],[35,52,10],[50,78,12]];let ocL=0,ledI=0,blkC=0;
 const dOc=()=>{for(const b of ocB){b.disabled=!switchable||sending;b.setAttribute('aria-pressed',+b.value===ocL);}const t=ocD[ocL]||ocD[0];show('on',ocL?(t[0]>0?'+':'')+t[0]+' MHz / '+(t[1]>0?'+':'')+t[1]+' mV / '+(t[2]>0?'+':'')+t[2]+' W':'Stock');};
 async function loadOc(){const m=/^oc ([1-7])$/.exec((await rc(ocP)).trim());ocL=m?+m[1]:0;dOc();}
-for(const b of ocB)b.onclick=async()=>{const l=+b.value;if(sending||!switchable||l<0||l>7)return;sending=true;for(const x of[...modeButtons,...hardwareButtons,...ocB])x.disabled=true;fb('Applying...');try{if(await sc(ocP,l?'oc '+l:'')!=='SAVED')throw 0;ocL=l;const c=currentProfile,a=c===2?1:2;await rpc('ascset|0,workmode,set,'+a);await wt(1200);await rpc('ascset|0,workmode,set,'+c);fb('Saved.');}catch{fb('Err');}finally{sending=false;dOc();refresh();}};
+for(const b of ocB)b.onclick=async()=>{const l=+b.value;if(sending||!switchable)return;sending=1;qa('button').forEach(x=>x.disabled=1);fb('...');try{if(await sc(ocP,l?'oc '+l:'')!=='SAVED')throw 0;ocL=l;const c=currentProfile,a=c===2?1:2;await as('workmode,set,'+a);await wt(1200);await as('workmode,set,'+c);fb('OK');}catch{fb('Err');}finally{sending=0;dOc();refresh();}};
 const _oR=renderStats;renderStats=raw=>{_oR(raw);dOc();if(!ledI){const m=/LEDUser\[(\d+)-(\d+)-\d+-(\d+)-(\d+)-(\d+)\]/.exec(raw);if(m){ledI=1;el('lf').value=m[1];el('lb').value=m[2];el('lc').value='#'+[m[3],m[4],m[5]].map(n=>(+n).toString(16).padStart(2,'0')).join('');}}};
-const go=(m,f)=>async()=>{fb(m);try{await f();}catch{fb('Err');}},wd='/data/userconfig/wallpaper';
-el('la').onclick=go('LED...',async()=>{const f=+el('lf').value,br=+el('lb').value,r=el('lc').value;if(f)await rpc('ascset|0,ledmode,0');await rpc('ascset|0,ledset,'+f+'-'+br+'-50-'+[1,3,5].map(i=>Math.round(parseInt(r.slice(i,i+2),16)*br/100)).join('-'));fb('LED OK');});
-el('led-off').onclick=go('Night...',async()=>{await sh('touch /run/p_ngt');await wt(1400);await rpc('ascset|0,ledmode,1');fb('Night');});
-el('li').onchange=async e=>{const f=e.target.files[0];if(!f)return;await go('Logo...',async()=>{const i=await createImageBitmap(f),c=dc('canvas'),x=c.getContext('2d'),s=Math.min(i.width,i.height);c.width=c.height=240;x.beginPath();x.arc(120,120,120,0,7);x.clip();x.drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,240,240);const b=c.toDataURL('image/png').split(',')[1];await sh('mkdir -p '+wd+'&&rm -f '+wd+'/* /tmp/l');for(let k=0;k<b.length;k+=640){fb('Logo '+mf(k*100/b.length)+'%');await sh('printf %s '+b.slice(k,k+640)+'>>/tmp/l');}await sh('base64 -d /tmp/l>'+wd+'/wallpaper_0.png&&rm -f /tmp/l&&sync');fb('Logo saved. Reboot.');})();e.target.value='';};
-el('lr').onclick=()=>confirm('Reset logo?')&&go('Reset...',async()=>{await sh('rm -f '+wd+'/*&&sync');fb('Reset. Reboot.');})();
-el('sr').onclick=()=>confirm('Reboot?')&&go('Reboot...',()=>rpc('ascset|0,reboot,0'))();
-el('so').onclick=()=>confirm('Power off?')&&go('Power off...',async()=>{await sh('touch /run/p_bye');await wt(1500);await sh('sync&&poweroff');})();
-if(el('tb'))el('tb').onclick=go('Block!',()=>sh('touch /run/p_blk'));
-setInterval(async()=>{try{const m=/Found Blocks=(\d+)/.exec(await rpc('summary'));if(m&&+m[1]>blkC){blkC=+m[1];await sh('touch /run/p_blk');}}catch{}},15000);
-loadOc().catch(()=>{});
+const go=(m,f)=>async()=>{fb(m);try{await f();}catch{fb('Err');}},wd='/data/userconfig/wallpaper',tc=n=>aS('touch /run/p_'+n);
+el('la').onclick=go('LED...',async()=>{const f=+el('lf').value,br=+el('lb').value,r=el('lc').value;if(f)await as('ledmode,0');await as('ledset,'+f+'-'+br+'-50-'+[1,3,5].map(i=>mr(+('0x'+r.slice(i,i+2))*br/100)).join('-'));fb('OK');});
+el('led-off').onclick=go('Night...',async()=>{await tc('ngt');await wt(1400);await as('ledmode,1');fb('OK');});
+el('li').onchange=async e=>{const f=e.target.files[0];if(!f)return;await go('Logo...',async()=>{const i=await createImageBitmap(f),c=dc('canvas'),x=c.getContext('2d'),s=Math.min(i.width,i.height);c.width=c.height=240;x.beginPath();x.arc(120,120,120,0,7);x.clip();x.drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,240,240);const b=c.toDataURL('image/png').split(',')[1];await aS('mkdir -p '+wd+'&&rm -f '+wd+'/* /tmp/l');for(let k=0;k<b.length;k+=640){fb('Logo '+mf(k*100/b.length)+'%');await aS('printf %s '+b.slice(k,k+640)+'>>/tmp/l');}await aS('base64 -d /tmp/l>'+wd+'/wallpaper_0.png&&rm -f /tmp/l&&sync');fb('OK. Reboot.');})();e.target.value='';};
+const cf=(i,q,m,f)=>el(i).onclick=()=>confirm(q)&&go(m,f)();
+const uF=async()=>{try{const m=/Filter\[(\d+)\]/.exec(await rpc('litestats'));if(m)show('fn','Filter: '+Math.max(0,mr((43200-+m[1])/432))+'%');}catch{}};
+cf('lr','Reset logo?','...',async()=>{await aS('rm -f '+wd+'/*&&sync');fb('OK. Reboot.');});
+cf('fr','Reset filter?','...',async()=>{await as('filter-clean,1');await wt(800);await uF();fb('OK');});
+cf('sr','Reboot?','...',()=>as('reboot,0'));
+cf('so','Power off?','...',async()=>{await tc('bye');await wt(1500);await aS('sync&&poweroff');});
+if(el('tb'))el('tb').onclick=go('Block!',()=>tc('blk'));
+setInterval(async()=>{uF();try{const m=/Found Blocks=(\d+)/.exec(await rpc('summary'));if(m&&+m[1]>blkC){blkC=+m[1];await tc('blk');}}catch{}},15000);
+uF();loadOc().catch(()=>{});
 loadCooling().catch(() => {});"""
 full_html = full_html.replace(load_marker, oc_js, 1)
 
@@ -1274,9 +1282,10 @@ for old_s, new_s in [
     ("Filter usage counter: ", "Filter: "),
     ("The factory lighting mode also controls the LCD backlight.", "Controls LED & LCD backlight."),
     ("Charts show the last 120 readings in this session.", "Last 120 samples."),
-    ("The miner accepted the command.", "Command accepted."),
-    ("The miner rejected the command.", "Command rejected."),
-    ("Could not reach the miner API.", "API unreachable."),
+    ("The miner accepted the command.", "Accepted."),
+    ("The miner rejected the command.", "Rejected."),
+    ("Could not reach the miner API.", "API offline."),
+    ("Auto targets ASIC temp; manual curve sets min PWM. Factory thermal protection stays active (100% by 90 °C).", "Auto targets temp; curve sets min PWM. Thermal guard: 100% @ 90°C."),
     ("document.createElement(", "dc("),
 ]:
     full_html = full_html.replace(old_s, new_s)
@@ -1364,6 +1373,8 @@ for old_id, new_id in [
     ("renderCharts", "rCh"), ("renderAsics", "rAs"), ("drawChart", "dCh"),
     ("apiShell", "aS"), ("sendShell", "sS"), ("setting", "st"),
     ("points", "pt"), ("parsed", "pr"), ("numbers", "nb"),
+    ("diagnosticKeys", "dK"), ("drawCharts", "dCs"), ("loadCooling", "lCl"),
+    ("saveCooling", "sCl"), ("renderCooling", "rCl"), ("clamp", "cl"),
 ]:
     js_part = re.sub(r"\b" + old_id + r"\b", new_id, js_part)
 full_html = html_part + minify_js_safe(js_part) + full_html[j2:]
@@ -1376,7 +1387,7 @@ def z_len(b):
 targets_5_9 = [1232, 1864, 1907, 1823, 1615]
 for bi, tgt in enumerate(targets_5_9):
     sb = full_html.encode("utf-8")
-    if z_len(sb[bi * 4096 : (bi + 1) * 4096]) <= tgt - 2:
+    if z_len(sb[bi * 4096 : (bi + 1) * 4096]) <= tgt:
         continue
     scr_pos = full_html.find("<script>") + 8
     lo_c, hi_c = bi * 4096 + 200, min(len(full_html), bi * 4096 + 2600)
@@ -1392,7 +1403,7 @@ for bi, tgt in enumerate(targets_5_9):
     pad_n = 8
     while len(prefix) + len((base_l + pre_p + "=" * pad_n + suf_p + base_r).encode("utf-8")) <= 44010:
         cand = base_l + pre_p + ("=" * pad_n) + suf_p + base_r
-        if z_len(cand.encode("utf-8")[bi * 4096 : (bi + 1) * 4096]) <= tgt - 1:
+        if z_len(cand.encode("utf-8")[bi * 4096 : (bi + 1) * 4096]) <= tgt:
             full_html = cand
             break
         pad_n += 4

@@ -74,7 +74,7 @@ All 12 system, startup, network, and alert screens (`assets_lcd/screen_pic/*.png
 
 | File | Description | Size | SHA-256 / Info |
 | :--- | :--- | ---: | :--- |
-| [`firmware/Phosphor_OS_Nano3S_OC_v5.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v5.kdimg) | **Firmware v5** (`app_ubi` only, `0x04200000`) | 4.69 MB | `54854B97281F38B01472E6C9DABEB1E7F3F3701BEF198E1FB9CC2F8EA8EACE04` |
+| [`firmware/Phosphor_OS_Nano3S_OC_v5.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v5.kdimg) | **Firmware v5** (`app_ubi` only, `0x04200000`) | 4.69 MB | `E1C5E44B4C5EAB8B13FF61329E4C5D9A14AE959A761D6C2B5273A6D03843F25E` |
 | [`tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip`](tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip) | **Original Canaan Avalon Home Series Firmware Upgrade Tool (Windows v2.2.1)** | 50.19 MB | Official Windows flasher |
 | [`tools/flash_linux.sh`](tools/flash_linux.sh) | **Linux CLI Flasher Script** (`x86_64` / `arm64`, uses official [`kendryte/k230_flash`](https://github.com/kendryte/k230_flash/releases)) | 2 KB | Linux CLI + [`k230_burning_tool`](https://github.com/kendryte/k230_burning_tool/releases) GUI |
 
@@ -86,7 +86,7 @@ Because `Phosphor_OS_Nano3S_OC_v5.kdimg` contains **only the `app_ubi` partition
 
 1. **Fixed LED Brightness Slider**: `mm_miner` (`led_colorset` / `led_inner_colorset`) writes raw 24-bit RGB directly to WS2812 without applying the brightness parameter. v5 scales the RGB channels by `brightness / 100` in the Web UI before sending `ledset`, so the 10-100% brightness slider visibly dims/brightens the LEDs.
 2. **Fixed Custom Logo Upload (`Err` on 240x240 PNG)**: `cg_miner` (`http_post_file_handler`) enforces a hard 1000-byte request buffer limit on `POST /usrdata`. v5 reduces upload chunks to `640 B` with live `%` progress and adds a format hint (`Logo: PNG/JPG/WebP (240x240)`) right under the button.
-3. **Removed Non-Functional `Filter N/A`**: The Avalon Nano 3S has no hardware filter counter/sensor (`estats` never reports `Filter[...]`), so the dead `Filter N/A` label and disabled `Reset filter` button were removed from the `Device` card.
+3. **Fixed Filter Percentage & 30-Day Clean Filter Alert**: `cg_miner` reports `Filter[<minutes>]` only in `litestats` (not `estats`), which caused `Filter N/A` in base Phosphor OS. v5 queries `litestats` to show remaining filter life (`Filter: XX%`) with a working **Reset Filter** button (`ascset|0,filter-clean,1`), and lowers the `CLEAN FILTER` (`filter.png`) alert threshold in `mm_miner` (`filtermesh_update @ 0x3b0d2`) from 83.3 days (`120,000 min`) to **30 days** (`43,200 min` / `720 h`).
 4. **Fixed `Goodbye` (`bye.png`) & `Night Mode` (`7.png`) LCD Icons**: Added a lightweight `/run/p_*` trigger hook in `mm_miner` (`updata_lcd_data` -> `hook_lcd_poll`). **Power Off** now displays `GOODBYE` (`bye.png`) for 1.5 s before running `sync && poweroff` (preventing Wi-Fi teardown from flashing `Check Wi-Fi`), and **Night mode** displays `NIGHT MODE` (`7.png`) for 1.4 s before blanking the backlight.
 5. **New Event-Only `BLOCK FOUND!` Fireworks Screen**: Activates automatically when `Found Blocks` increases in `cg_miner` `summary` (polled every 15 s), or on demand via the **Test Block** button in the **Diagnostics** tab.
 
@@ -161,7 +161,7 @@ Built from the base Phosphor OS `app_ubi` image using a two-pass **RISC-V64 macr
 
 ### Windows
 1. Download [`firmware/Phosphor_OS_Nano3S_OC_v5.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v5.kdimg) and unpack [`tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip`](tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip).
-2. Verify SHA-256 of the `.kdimg` file: `54854B97281F38B01472E6C9DABEB1E7F3F3701BEF198E1FB9CC2F8EA8EACE04`.
+2. Verify SHA-256 of the `.kdimg` file: `E1C5E44B4C5EAB8B13FF61329E4C5D9A14AE959A761D6C2B5273A6D03843F25E`.
 3. Run **Avalon Home Series Firmware Upgrade Tool**, select `Phosphor_OS_Nano3S_OC_v5.kdimg`, connect your Avalon Nano 3S in upgrade mode, and flash (only `app_ubi` is updated).
 
 ### Linux (`x86_64` / `arm64`)
@@ -191,8 +191,8 @@ Kompletna nakładka firmware **Phosphor OS v5** dla koparki **Canaan Avalon Nano
    - W `mm_miner` funkcja `led_colorset` przekazywała czyste RGB na diody WS2812 bez uwzględnienia parametru jasności. W v5 panel skaluje kanały R/G/B przez wartość suwaka przed wysłaniem komendy `ledset`, dzięki czemu regulacja jasności działa płynnie.
 2. **Naprawione wgrywanie własnego logo na 6. ekran + opis formatu**:
    - `cg_miner` ma twardy limit `1000 B` na bufor żądania `POST /usrdata`, przez co większe paczki zwracały `Err`. W v5 obraz jest wysyłany w porcjach po `640 B` z paskiem postępu `%`, a przy przycisku widnieje jasna informacja: `Logo: PNG/JPG/WebP (240x240)`.
-3. **Usunięty niedziałający licznik `Filter N/A`**:
-   - Avalon Nano 3S nie posiada sprzętowego czujnika ani licznika filtra (stąd `N/A` również w oficjalnej aplikacji). Z karty `Device` usunięto martwy napis i nieaktywny przycisk `Reset filter`.
+3. **Działający wskaźnik filtra (%) + alert czyszczenia co 30 dni**:
+   - `cg_miner` zwraca `Filter[<minuty>]` wyłącznie w komendzie `litestats` (stąd `Filter N/A` w bazowym Phosphor OS). W v5 panel odpytuje `litestats`, pokazuje pozostały poziom filtra w procentach (`Filter: XX%`) oraz udostępnia działający przycisk **Reset Filter** (`ascset|0,filter-clean,1`). Próg pojawienia się ikony `CLEAN FILTER` (`filter.png`) w `mm_miner` (`filtermesh_update`) zmieniono z fabrycznych 83,3 dni (`120 000 min`) na **30 dni pracy** (`43 200 min` / `720 h`).
 4. **Poprawione ikony `Goodbye` przy wyłączaniu i `Night Mode` przy trybie nocnym**:
    - Dodano lekki hook `hook_lcd_poll` w `mm_miner` (na plikach `/run/p_*`): **Power Off** wyświetla ikonę `GOODBYE` (`bye.png`) przez 1.5 s zanim wykona `sync && poweroff` (zamiast błędu `Check Wi-Fi`), a **Night mode** pokazuje ikonę `NIGHT MODE` (`7.png`) przez 1.4 s przed zgaszeniem podświetlenia LCD.
 5. **Nowy ekran fajerwerków `BLOCK FOUND!` (tylko po trafieniu bloku)**:

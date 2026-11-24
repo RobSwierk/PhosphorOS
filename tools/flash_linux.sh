@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEFAULT_IMG="$REPO_DIR/firmware/Phosphor_OS_Nano3S_OC_v5.kdimg"
-EXPECTED_SHA="54854b97281f38b01472e6c9dabeb1e7f3f3701bef198e1fb9cc2f8ea8eace04"
+EXPECTED_SHA="e1c5e44b4c5eab8b13ff61329e4c5d9a14ae959a761d6c2b5273a6d03843f25e"
 
 IMG="${1:-$DEFAULT_IMG}"
 TOOL_DIR="$SCRIPT_DIR/.k230_flash"
