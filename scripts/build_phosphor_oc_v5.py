@@ -1039,12 +1039,32 @@ c.label("ct_no")
 c.ld("ra", 8, "sp"); c.ld("s1", 0, "sp"); c.addi("sp", "sp", 16); c.ret()
 
 c.label("hook_lcd_poll")
-c.addi("sp", "sp", -16); c.sd("ra", 8, "sp")
+c.addi("sp", "sp", -64); c.sd("ra", 56, "sp"); c.sd("s1", 48, "sp")
 c.addi("a0", "s0", -240); c.call(UPDATA_LCD_ARC)
 c.la("a0", L_A["str_p_blk"]); c.li("a1", 21); c.call("chk_t")
 c.la("a0", L_A["str_p_bye"]); c.li("a1", 3);  c.call("chk_t")
 c.la("a0", L_A["str_p_ngt"]); c.li("a1", 11); c.call("chk_t")
-c.ld("ra", 8, "sp"); c.addi("sp", "sp", 16); c.ret()
+# Mining Start icon (9.png, ui_idx=13): show for ~2.8s (7 ticks @ ~400ms) when hashing starts
+c.la("s1", BSS_STATE)
+c.lw("t0", 0x158, "s1")
+c.beq("t0", "zero", "hlp_chk_m")
+c.addi("t0", "t0", -1)
+c.sw("t0", 0x158, "s1")
+c.bne("t0", "zero", "hlp_end")
+c.li("a0", 0); c.call(LCD_SWITCH_SCREEN)
+c.j("hlp_end")
+c.label("hlp_chk_m")
+c.lw("t0", 0x154, "s1")
+c.bne("t0", "zero", "hlp_end")
+c.mv("a0", "sp"); c.call(L_A["read_lcdv2"])
+c.beq("a0", "zero", "hlp_end")
+c.lw("t0", 20, "sp")                   # lcdv2[5] = hashrate (GHS*100)
+c.beq("t0", "zero", "hlp_end")
+c.li("t0", 1); c.sw("t0", 0x154, "s1") # mining_shown = 1
+c.li("t0", 7); c.sw("t0", 0x158, "s1") # mining_hold = 7 ticks (~2.8s)
+c.li("a0", 13); c.call(LCD_SWITCH_SCREEN)
+c.label("hlp_end")
+c.ld("ra", 56, "sp"); c.ld("s1", 48, "sp"); c.addi("sp", "sp", 64); c.ret()
 block_c = c.build()
 L_C = c.labels
 print(f"Block C (0x000CEE60): {len(block_c)} bytes (ends at 0x{0xCEE60+len(block_c):08x}, limit 0x000cf000)")
@@ -1233,14 +1253,14 @@ for(const b of ocB)b.onclick=async()=>{const l=+b.value;if(sending||!switchable)
 const _oR=renderStats;renderStats=raw=>{_oR(raw);dOc();if(!ledI){const m=/LEDUser\[(\d+)-(\d+)-\d+-(\d+)-(\d+)-(\d+)\]/.exec(raw);if(m){ledI=1;el('lf').value=m[1];el('lb').value=m[2];el('lc').value='#'+[m[3],m[4],m[5]].map(n=>(+n).toString(16).padStart(2,'0')).join('');}}};
 const go=(m,f)=>async()=>{fb(m);try{await f();}catch{fb('Err');}},wd='/data/userconfig/wallpaper',tc=n=>aS('touch /run/p_'+n);
 el('la').onclick=go('LED...',async()=>{const f=+el('lf').value,br=+el('lb').value,r=el('lc').value;if(f)await as('ledmode,0');await as('ledset,'+f+'-'+br+'-50-'+[1,3,5].map(i=>mr(+('0x'+r.slice(i,i+2))*br/100)).join('-'));fb('OK');});
-el('led-off').onclick=go('Night...',async()=>{await tc('ngt');await wt(1400);await as('ledmode,1');fb('OK');});
+el('led-off').onclick=go('Night...',async()=>{await tc('ngt');await wt(2500);await as('ledmode,1');fb('OK');});
 el('li').onchange=async e=>{const f=e.target.files[0];if(!f)return;await go('Logo...',async()=>{const i=await createImageBitmap(f),c=dc('canvas'),x=c.getContext('2d'),s=Math.min(i.width,i.height);c.width=c.height=240;x.beginPath();x.arc(120,120,120,0,7);x.clip();x.drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,240,240);const b=c.toDataURL('image/png').split(',')[1];await aS('mkdir -p '+wd+'&&rm -f '+wd+'/* /tmp/l');for(let k=0;k<b.length;k+=640){fb('Logo '+mf(k*100/b.length)+'%');await aS('printf %s '+b.slice(k,k+640)+'>>/tmp/l');}await aS('base64 -d /tmp/l>'+wd+'/wallpaper_0.png&&rm -f /tmp/l&&sync');fb('OK. Reboot.');})();e.target.value='';};
 const cf=(i,q,m,f)=>el(i).onclick=()=>confirm(q)&&go(m,f)();
 const uF=async()=>{try{const m=/Filter\[(\d+)\]/.exec(await rpc('litestats'));if(m)show('fn','Filter: '+Math.max(0,mr((43200-+m[1])/432))+'%');}catch{}};
 cf('lr','Reset logo?','...',async()=>{await aS('rm -f '+wd+'/*&&sync');fb('OK. Reboot.');});
 cf('fr','Reset filter?','...',async()=>{await as('filter-clean,1');await wt(800);await uF();fb('OK');});
 cf('sr','Reboot?','...',()=>as('reboot,0'));
-cf('so','Power off?','...',async()=>{await tc('bye');await wt(1500);await aS('sync&&poweroff');});
+cf('so','Power off?','...',async()=>{await tc('bye');await wt(2500);await aS('sync&&poweroff');});
 if(el('tb'))el('tb').onclick=go('Block!',()=>tc('blk'));
 setInterval(async()=>{uF();try{const m=/Found Blocks=(\d+)/.exec(await rpc('summary'));if(m&&+m[1]>blkC){blkC=+m[1];await tc('blk');}}catch{}},15000);
 uF();loadOc().catch(()=>{});
