@@ -1209,8 +1209,7 @@ full_html = re.sub(r"el\('filter-reset'\)\.onclick\s*=\s*\(\)\s*=>\s*\{[^}]+\};?
 full_html = re.sub(r"const filter\s*=\s*num\(stat\.Filter\);\s*show\('filter-note'[^;]+;", "", full_html)
 full_html = full_html.replace("'filter-reset',", "").replace(",'filter-reset'", "")
 dev_html = """      <div class="actions" style="gap:5px;align-items:center"><select id="lf" style="width:auto"><option value="1">Solid</option><option value="2">Flash</option><option value="3">Breath</option><option value="4">Rainbow</option><option value="0">Off</option></select><input id="lc" type="color" value="#0088ff" style="width:36px;height:28px;padding:1px"><input id="lb" type="range" min="10" max="100" value="100" style="width:76px"><button id="la">Apply LED</button></div>
-      <div class="actions"><input id="li" type="file" accept="image/*" hidden><button onclick="el('li').click()">Upload Logo</button><button id="lr">Reset Logo</button><button id="fr">Reset Filter</button><button id="sr">Reboot</button><button id="so" style="color:#ff8a8a">Power Off</button></div>
-      <p><span id="fn">Filter: --%</span> | <small>Logo: PNG/JPG/WebP 240x240</small></p>
+      <div class="actions"><span id="fn">Filter: --%</span><button id="fr">Reset Filter</button><button id="sr">Reboot</button><button id="so" style="color:#ff8a8a">Power Off</button></div>
     </article>"""
 full_html = full_html.replace(dev_marker, dev_html, 1)
 
@@ -1251,13 +1250,11 @@ const dOc=()=>{for(const b of ocB){b.disabled=!switchable||sending;b.setAttribut
 async function loadOc(){const m=/^oc ([1-7])$/.exec((await rc(ocP)).trim());ocL=m?+m[1]:0;dOc();}
 for(const b of ocB)b.onclick=async()=>{const l=+b.value;if(sending||!switchable)return;sending=1;qa('button').forEach(x=>x.disabled=1);fb('...');try{if(await sc(ocP,l?'oc '+l:'')!=='SAVED')throw 0;ocL=l;const c=currentProfile,a=c===2?1:2;await as('workmode,set,'+a);await wt(1200);await as('workmode,set,'+c);fb('OK');}catch{fb('Err');}finally{sending=0;dOc();refresh();}};
 const _oR=renderStats;renderStats=raw=>{_oR(raw);dOc();if(!ledI){const m=/LEDUser\[(\d+)-(\d+)-\d+-(\d+)-(\d+)-(\d+)\]/.exec(raw);if(m){ledI=1;el('lf').value=m[1];el('lb').value=m[2];el('lc').value='#'+[m[3],m[4],m[5]].map(n=>(+n).toString(16).padStart(2,'0')).join('');}}};
-const go=(m,f)=>async()=>{fb(m);try{await f();}catch{fb('Err');}},wd='/data/userconfig/wallpaper',tc=n=>aS('touch /run/p_'+n);
+const go=(m,f)=>async()=>{fb(m);try{await f();}catch{fb('Err');}},tc=n=>aS('touch /run/p_'+n);
 el('la').onclick=go('LED...',async()=>{const f=+el('lf').value,br=+el('lb').value,r=el('lc').value;if(f)await as('ledmode,0');await as('ledset,'+f+'-'+br+'-50-'+[1,3,5].map(i=>mr(+('0x'+r.slice(i,i+2))*br/100)).join('-'));fb('OK');});
 el('led-off').onclick=go('Night...',async()=>{await tc('ngt');await wt(2500);await as('ledmode,1');fb('OK');});
-el('li').onchange=async e=>{const f=e.target.files[0];if(!f)return;await go('Logo...',async()=>{const i=await createImageBitmap(f),c=dc('canvas'),x=c.getContext('2d'),s=Math.min(i.width,i.height);c.width=c.height=240;x.beginPath();x.arc(120,120,120,0,7);x.clip();x.drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,240,240);const b=c.toDataURL('image/png').split(',')[1];await aS('mkdir -p '+wd+'&&rm -f '+wd+'/* /tmp/l');for(let k=0;k<b.length;k+=640){fb('Logo '+mf(k*100/b.length)+'%');await aS('printf %s '+b.slice(k,k+640)+'>>/tmp/l');}await aS('base64 -d /tmp/l>'+wd+'/wallpaper_0.png&&rm -f /tmp/l&&sync');fb('OK. Reboot.');})();e.target.value='';};
 const cf=(i,q,m,f)=>el(i).onclick=()=>confirm(q)&&go(m,f)();
 const uF=async()=>{try{const m=/Filter\[(\d+)\]/.exec(await rpc('litestats'));if(m)show('fn','Filter: '+Math.max(0,mr((43200-+m[1])/432))+'%');}catch{}};
-cf('lr','Reset logo?','...',async()=>{await aS('rm -f '+wd+'/*&&sync');fb('OK. Reboot.');});
 cf('fr','Reset filter?','...',async()=>{await as('filter-clean,1');await wt(800);await uF();fb('OK');});
 cf('sr','Reboot?','...',()=>as('reboot,0'));
 cf('so','Power off?','...',async()=>{await tc('bye');await wt(2500);await aS('sync&&poweroff');});

@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/Release-v5-2e7d32?style=for-the-badge" alt="Release v5" />
 </p>
 
-> Custom `app_ubi` firmware build for **Canaan Avalon Nano 3S** based on **Phosphor OS**. Adds an 8-mode hardware-aligned UC / UV / Eff OC / OC tuning switch, full RGB LED effect and real brightness scaling, custom 240x240 logo upload (Screen 6), Web UI Reboot and Power Off with proper `Goodbye` / `Night Mode` LCD icon triggers, 3 new live 240x240 round LCD telemetry screens (Power Bus, 12x A3197S Core Temps, and Live W/V/A Power Chart), plus a special animated **BLOCK FOUND!** fireworks screen that activates when a solo block is found.
+> Custom `app_ubi` firmware build for **Canaan Avalon Nano 3S** based on **Phosphor OS**. Adds an 8-mode hardware-aligned UC / UV / Eff OC / OC tuning switch, full RGB LED effect and real brightness scaling, 30-day filter counter with Web UI reset, Web UI Reboot and Power Off with proper `Goodbye` / `Night Mode` / `Mining Start` LCD icon triggers, 3 new live 240x240 round LCD telemetry screens (Power Bus, 12x A3197S Core Temps, and Live W/V/A Power Chart), plus a special animated **BLOCK FOUND!** fireworks screen that activates when a solo block is found.
 >
 > **Full Avalon Family app compatibility:** Initial setup on a new miner, Bluetooth/Wi-Fi pairing, and regular control through the official **Avalon Family** mobile app remain unchanged and continue to work normally.
 
@@ -33,7 +33,7 @@ Short-pressing the front touch button cycles through all 6 normal screens:
 | **3** | **12x A3197S Cores** | `26` | Live PLL `MHz` & `Vcore`, symmetric 3x4 grid of all 12 ASIC chip temperatures from `g_pvt_temp` (green `<75°C`, amber `75-81°C`, red `>=82°C`), `Min / Avg / Max °C`, and `TH/s` |
 | **4** | **Power Live Chart** | `27` | Real-time 48-second 3-series LVGL `lv_chart` (`176x104 px`): **Watts** (`#F3A965`, 0-150 W), **Volts** (`#8DC5FF`, 20-30 V), and **Amps** (`#9AEF9E`, 0-6 A), with live numeric values and `TH/s \| °C` footer |
 | **5** | **Digital Clock** | `2` | Phosphor OS digital clock with 60-second perimeter tick ring, weekday, seconds badge and date |
-| **6** | **Custom Logo** | `3` | Default logo (`logo_b.png`) or your own 240x240 PNG/JPG/WebP uploaded directly from the Web UI |
+| **6** | **Logo / Wallpaper** | `3` | Built-in logo (`logo_b.png`) or custom wallpaper uploaded via the official Avalon Family app |
 | *Event* | **BLOCK FOUND! Fireworks** | `21` *(event-only)* | Animated 8-spark 4-color fireworks screen (`BLOCK / FOUND! / SOLO MINING WIN!`) that only activates when `Found Blocks` increments (or via the **Test Block** button in the **Diagnostics** tab). Not part of the regular button rotation; tap the front button to return to normal screens. |
 
 ### Event-Only `BLOCK FOUND!` Fireworks Screen
@@ -59,7 +59,7 @@ All 12 system, startup, network, and alert screens (`assets_lcd/screen_pic/*.png
 
 ## Web Dashboard & Tabs
 
-### Overview (Telemetry, Live Charts, 8-Mode Tuning + OC Disclaimer, Cooling, Full RGB LED, Custom Logo & Power Controls)
+### Overview (Telemetry, Live Charts, 8-Mode Tuning + OC Disclaimer, Cooling, Full RGB LED, Filter & Power Controls)
 <p align="center">
   <img src="images/webui_overview.png" width="100%" alt="Phosphor OS v5 Web UI - Overview Tab" />
 </p>
@@ -80,7 +80,7 @@ All 12 system, startup, network, and alert screens (`assets_lcd/screen_pic/*.png
 
 | File | Description | Size | SHA-256 / Info |
 | :--- | :--- | ---: | :--- |
-| [`firmware/Phosphor_OS_Nano3S_OC_v5.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v5.kdimg) | **Firmware v5** (`app_ubi` only, `0x04200000`) | 4.69 MB | `AD33E8FF1AEBB1D1D4FC9FC5D5E1E29BE72275F2DED92994B71B1E66458E6D27` |
+| [`firmware/Phosphor_OS_Nano3S_OC_v5.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v5.kdimg) | **Firmware v5** (`app_ubi` only, `0x04200000`) | 4.69 MB | `B065F83AE0F8A124AF9EC7141E52E77EFB4E0EC9B3B358A3D5BD5802E424B29E` |
 | [`tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip`](tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip) | **Original Canaan Avalon Home Series Firmware Upgrade Tool (Windows v2.2.1)** | 50.19 MB | Official Windows flasher |
 | [`tools/flash_linux.sh`](tools/flash_linux.sh) | **Linux CLI Flasher Script** (`x86_64` / `arm64`, uses official [`kendryte/k230_flash`](https://github.com/kendryte/k230_flash/releases)) | 2 KB | Linux CLI + [`k230_burning_tool`](https://github.com/kendryte/k230_burning_tool/releases) GUI |
 
@@ -91,7 +91,7 @@ Because `Phosphor_OS_Nano3S_OC_v5.kdimg` contains **only the `app_ubi` partition
 ## What's New in v5 (from Hardware Testing of v4)
 
 1. **Fixed LED Brightness Slider**: `mm_miner` (`led_colorset` / `led_inner_colorset`) writes raw 24-bit RGB directly to WS2812 without applying the brightness parameter. v5 scales the RGB channels by `brightness / 100` in the Web UI before sending `ledset`, so the 10-100% brightness slider visibly dims/brightens the LEDs.
-2. **Fixed Custom Logo Upload (`Err` on 240x240 PNG)**: `cg_miner` (`http_post_file_handler`) enforces a hard 1000-byte request buffer limit on `POST /usrdata`. v5 reduces upload chunks to `640 B` with live `%` progress and adds a format hint (`Logo: PNG/JPG/WebP (240x240)`) right under the button.
+2. **Clean Device Card (Custom Logo via Official App)**: `cg_miner` (`http_post_file_handler`) uses a fixed 128-byte stack command buffer on `POST /usrdata`, making Web UI image upload unreliable. Web UI logo upload was removed in favor of the official **Avalon Family** app, which uploads custom Screen 6 wallpapers via the native binary protocol.
 3. **Fixed Filter Percentage & 30-Day Clean Filter Alert**: `cg_miner` reports `Filter[<minutes>]` only in `litestats` (not `estats`), which caused `Filter N/A` in base Phosphor OS. v5 queries `litestats` to show remaining filter life (`Filter: XX%`) with a working **Reset Filter** button (`ascset|0,filter-clean,1`), and lowers the `CLEAN FILTER` (`filter.png`) alert threshold in `mm_miner` (`filtermesh_update @ 0x3b0d2`) from 83.3 days (`120,000 min`) to **30 days** (`43,200 min` / `720 h`).
 4. **Fixed `Goodbye` (`bye.png`), `Night Mode` (`7.png`) & `Mining Start` (`9.png`) LCD Icons (2.5-3.0 s)**: Added a lightweight trigger hook in `mm_miner` (`updata_lcd_data` -> `hook_lcd_poll`). **Power Off** displays `GOODBYE` (`bye.png`) for **2.5 s** before running `sync && poweroff`, **Night mode** displays `NIGHT MODE` (`7.png`) for **2.5 s** before blanking the backlight, and **Mining Start** (`9.png`) now displays automatically for **~2.8 s** when hashing starts after boot before returning to the Main Dashboard.
 5. **New Event-Only `BLOCK FOUND!` Fireworks Screen**: Activates automatically when `Found Blocks` increases in `cg_miner` `summary` (polled every 15 s), or on demand via the **Test Block** button in the **Diagnostics** tab.
@@ -123,10 +123,8 @@ Disassembly of `power_set_vol` (`0x0004c0b6`) in `mm_miner` showed that the onbo
   - **Effects**: `Solid` (`1`), `Flash` (`2`), `Breath` (`3`), `Rainbow` (`4`), `Off` (`0`)
   - Full 24-bit RGB color picker and working 10-100% brightness slider (scales RGB values directly for WS2812).
 
-### 3. Custom Logo Upload for Screen 6 (`PNG / JPG / WebP`, auto-formatted to `240x240 PNG`)
-- Click **Upload Logo** in the **Device** card and pick any `.png`, `.jpg`, or `.webp` image.
-- The browser automatically center-crops and masks it into a circular **240x240 PNG**, uploads it reliably in 640-byte chunks to `/data/userconfig/wallpaper/wallpaper_0.png`, and keeps it across reboots.
-- Click **Reset Logo** at any time to restore the built-in logo.
+### 3. Screen 6 Logo / Wallpaper
+- Screen 6 displays the built-in logo (`logo_b.png`) by default. To set your own custom wallpaper, use the official **Avalon Family** app (native binary upload).
 
 ### 4. Power Management (Reboot & Power Off)
 - **Reboot** (`ascset|0,reboot,0`) and **Power Off** (displays `GOODBYE` icon for 1.5 s, then runs `sync && poweroff`) buttons in the **Device** card with confirmation prompts for safe shutdown without corrupting UBIFS.
@@ -146,7 +144,7 @@ This build is based on the latest official **Avalon Nano 3S stock firmware (`202
 | **OC / UC / UV Tuning** | `mm_miner`: `cali_param_get` (`0x3b9e0`), `Block A` | Adds 8-mode live tuning (`UC -2`, `UC -1`, `UV`, `Stock`, `Eff OC`, `OC +1..+3`) aligned to exact **26 mV** hardware VRM DAC steps, saved in `/data/userdata/phosphor-oc.conf`, with hard safety clamps (`45-145 W`, `3200-3750 mV`, `120-520 MHz`). |
 | **Cooling & Fan Curve** | `mm_miner`: `misc_thread` (`0x3b148`) | Adds custom Auto temperature target (`50-85 °C`) and 5-point manual PWM fan curve saved in `/data/userdata/phosphor-cooling.conf`, while keeping factory thermal protection (`100%` fan by `90 °C`), plus live `/run/phosphor-lcd-telemetry` (`LCDV2`) export. |
 | **240x240 Round LCD UI** | `mm_miner`: `lcd_screen_info_init`, `lcd_screen_watch_init`, `lcd_screen_img_init`, `lcd_regular_show_switch`, `lcd_hardware_update`, `get_screen_index`, `lcd_switch_screen`, `updata_lcd_data`, `Block B`, `Block C` | Replaces stock main and watch screens with Phosphor OS vector Main Dashboard and 60-tick Digital Clock; adds 3 new live screens (Power Bus, 12x A3197S Core Temps, 48 s W/V/A `lv_chart`) in a 6-screen button rotation; adds event-only animated `BLOCK FOUND!` fireworks screen (`ui_idx=21`) and `/run/p_*` triggers for `Goodbye` and `Night Mode`; replaces all 12 system/alert icons (`assets_lcd/screen_pic/*.png`) with dark icons featuring a color-coded animated perimeter ring. |
-| **Web Dashboard & Controls** | `dashboard.html`, `cgpools.html`, `cg_miner` (`http_post_file_handler`) | 4-tab Web UI (`Overview`, `Pools`, `ASICs`, `Diagnostics`) with 120-sample live charts, 8-mode Tuning card + OC warning, fan curve editor, full RGB LED control with working brightness scaling, 640 B chunked Screen 6 custom logo upload/reset, Reboot / Power Off with `Goodbye` icon, `Night mode` icon preview, and `Test Block` button in `Diagnostics`. |
+| **Web Dashboard & Controls** | `dashboard.html`, `cgpools.html`, `cg_miner` (`http_post_file_handler`) | 4-tab Web UI (`Overview`, `Pools`, `ASICs`, `Diagnostics`) with 120-sample live charts, 8-mode Tuning card + OC warning, fan curve editor, full RGB LED control with working brightness scaling, 30-day filter % & Reset Filter, Reboot / Power Off with `Goodbye` icon, `Night mode` icon preview, and `Test Block` button in `Diagnostics`. |
 | **Avalon Family App** | Unchanged | First-time onboarding, Bluetooth/Wi-Fi pairing, and regular mobile app control work identically to stock firmware. |
 
 ---
@@ -167,7 +165,7 @@ Built from the base Phosphor OS `app_ubi` image using a two-pass **RISC-V64 macr
 
 ### Windows
 1. Download [`firmware/Phosphor_OS_Nano3S_OC_v5.kdimg`](firmware/Phosphor_OS_Nano3S_OC_v5.kdimg) and unpack [`tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip`](tools/AvalonHomeSeriesFirmwareUpgradeTool-windows-v2.2.1-0-gc3a400c-c137.zip).
-2. Verify SHA-256 of the `.kdimg` file: `AD33E8FF1AEBB1D1D4FC9FC5D5E1E29BE72275F2DED92994B71B1E66458E6D27`.
+2. Verify SHA-256 of the `.kdimg` file: `B065F83AE0F8A124AF9EC7141E52E77EFB4E0EC9B3B358A3D5BD5802E424B29E`.
 3. Run **Avalon Home Series Firmware Upgrade Tool**, select `Phosphor_OS_Nano3S_OC_v5.kdimg`, connect your Avalon Nano 3S in upgrade mode, and flash (only `app_ubi` is updated).
 
 ### Linux (`x86_64` / `arm64`)
@@ -180,7 +178,7 @@ Built from the base Phosphor OS `app_ubi` image using a two-pass **RISC-V64 macr
 
 ### After Reboot
 - If this is a new device, pair and set it up normally using the official **Avalon Family** app.
-- Open the Web UI in your browser to configure **Tuning (UC / UV / OC)**, **RGB LED**, **Custom Logo**, or **Cooling**.
+- Open the Web UI in your browser to configure **Tuning (UC / UV / OC)**, **RGB LED**, **Filter**, or **Cooling**.
 - Tap the front touch button to cycle through all 6 LCD screens.
 - Open the **Diagnostics** tab and click **Test Block** to preview the animated `BLOCK FOUND!` fireworks screen on your LCD.
 
@@ -195,8 +193,8 @@ Kompletna nakładka firmware **Phosphor OS v5** dla koparki **Canaan Avalon Nano
 ### Co poprawiono i dodano w wersji v5
 1. **Działający suwak jasności LED (`10-100%`)**:
    - W `mm_miner` funkcja `led_colorset` przekazywała czyste RGB na diody WS2812 bez uwzględnienia parametru jasności. W v5 panel skaluje kanały R/G/B przez wartość suwaka przed wysłaniem komendy `ledset`, dzięki czemu regulacja jasności działa płynnie.
-2. **Naprawione wgrywanie własnego logo na 6. ekran + opis formatu**:
-   - `cg_miner` ma twardy limit `1000 B` na bufor żądania `POST /usrdata`, przez co większe paczki zwracały `Err`. W v5 obraz jest wysyłany w porcjach po `640 B` z paskiem postępu `%`, a przy przycisku widnieje jasna informacja: `Logo: PNG/JPG/WebP (240x240)`.
+2. **Uproszczona karta `Device` (własne logo przez oficjalną aplikację)**:
+   - `cg_miner` (`http_post_file_handler`) ma na stosie twardy bufor `128 B` dla żądań `POST /usrdata`, co uniemożliwia stabilne wysyłanie plików graficznych z poziomu panelu Web. Przyciski uploadu logo usunięto z Web UI - własne zdjęcie/logo na 6. ekran można bez problemu wgrywać przez oryginalną aplikację **Avalon Family** (natywny transfer binarny).
 3. **Działający wskaźnik filtra (%) + alert czyszczenia co 30 dni**:
    - `cg_miner` zwraca `Filter[<minuty>]` wyłącznie w komendzie `litestats` (stąd `Filter N/A` w bazowym Phosphor OS). W v5 panel odpytuje `litestats`, pokazuje pozostały poziom filtra w procentach (`Filter: XX%`) oraz udostępnia działający przycisk **Reset Filter** (`ascset|0,filter-clean,1`). Próg pojawienia się ikony `CLEAN FILTER` (`filter.png`) w `mm_miner` (`filtermesh_update`) zmieniono z fabrycznych 83,3 dni (`120 000 min`) na **30 dni pracy** (`43 200 min` / `720 h`).
 4. **Poprawione ikony `Goodbye`, `Night Mode` oraz `Mining Start` (2,5-3,0 s)**:
